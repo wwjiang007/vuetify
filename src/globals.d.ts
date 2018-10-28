@@ -37,6 +37,7 @@ declare global {
       enabled?: boolean
       centered?: boolean
       class?: string
+      circle?: boolean
     }
     _onScroll?: {
       callback: EventListenerOrEventListenerObject
@@ -48,12 +49,10 @@ declare global {
     }
   }
 
-  interface HTMLImageElement {
-    decode: () => Promise<never>
-  }
-
   function parseInt(s: string | number, radix?: number): number
   function parseFloat(string: string | number): number
+
+  export type Dictionary<T> = Record<string, T>
 
   export const __VUETIFY_VERSION__: string
   export const __REQUIRED_VUE__: string
@@ -77,6 +76,7 @@ declare module 'vue/types/vue' {
 
   export interface Vue {
     _uid: number
+    _isDestroyed: boolean
 
     /** bindObjectListeners */
      _g (data: VNodeData, value: {}): VNodeData
