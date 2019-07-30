@@ -1,0 +1,17 @@
+{
+  "headerText": "`v-carousel` コンポーネントは、タイマーで入れ替わる数枚の大きなビジュアルコンテンツを表示するために使います。",
+  "examples": {
+    "custom-transition": {
+      "header": "カスタムトランジション",
+      "desc": "独自のカスタムトランジションを適用することもできます。"
+    },
+    "hide-controls": {
+      "header": "コントロールを隠す",
+      "desc": "`hide-controls` prop を使用することで下部のコントローラーを隠すことができます。"
+    }
+  },
+  "props": {
+    "delimiterIcon": "Carousel のデリミターとして使用するアイコンを設定します。",
+    "reverseTransition": "戻す際のトランジションを設定します。"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "header": "crwdns34748:0crwdne34748:0",
+  "headerText": "crwdns34750:0crwdne34750:0",
+  "examples": {
+    "usage": {
+      "desc": "crwdns34752:0crwdne34752:0"
+    },
+    "small": {
+      "header": "crwdns34754:0crwdne34754:0",
+      "desc": "crwdns34756:0crwdne34756:0"
+    },
+    "display-animation": {
+      "header": "crwdns40980:0crwdne40980:0",
+      "desc": "crwdns40982:0crwdne40982:0"
+    },
+    "lateral-screens": {
+      "header": "crwdns40984:0crwdne40984:0",
+      "desc": "crwdns40986:0crwdne40986:0"
+    },
+    "speed-dial": {
+      "header": "crwdns40988:0crwdne40988:0",
+      "desc": "crwdns40990:0crwdne40990:0"
+    }
+  },
+  "api": {
+    "v-btn": "crwdns40992:0crwdne40992:0"
+  },
+  "props": {
+    "v-speed-dial": {
+      "direction": "crwdns34794:0crwdne34794:0",
+      "openOnHover": "crwdns34796:0crwdne34796:0"
+    }
+  }
+}

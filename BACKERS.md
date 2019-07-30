@@ -2,70 +2,66 @@
 
 You can join them in supporting Vuetify.js by [pledging on Patreon](https://www.patreon.com/vuetify)
 
+### $1500+
+- [QOMPLX](https://www.qomplx.com/)
+
 ### $500+
 - [LMAX Exchange](https://www.lmax.com/)
 - [Intygrate](http://intygrate.com/)
 - [Resale AI](http://resaleai.com/)
 
 ### $250+
-- [Eikos Partners](http://www.eikospartners.com/) <!-- Brian Slater -->
 - [rateGenius](https://application.rategenius.com/) <!-- Ravi Alamuri -->
 - [Clearblue Technologies](http://www.clearbluetechnologies.com/) <!-- Mark Windrim -->
 - [DigitalMaas](https://www.digitalmaas.com/) <!-- Scott Francis -->
-
-### $100+
-- [Anthony Gherghetta](https://gorilladash.com/)
+- [Asolvi](http://asolvi.com/) <!-- Sverre Dreier -->
 
 ### $50+
 - [Xavier Escoté](http://www.deister.net/)
-- [Steve Gehrman](https://cocoatech.com/)
 - [Cycloid](https://www.cycloid.io/)
 - [Zweidenker](http://zweidenker.de) <!-- Christian Denker -->
 - [Software IDM](https://softwareidm.com/) <!-- Peter Sidebotham -->
 - [Hohenstein Laboratories](https://www.hohenstein.de/en/home/home.xhtml)
 - [P2L Technologies](https://p2l.tech/) <!-- Blaise Laflamme -->
 - [madhead](https://www.madhead.com/) <!-- Terence Tsang -->
+- Musashi Miyamori
+- Elfo s.r.l.
+- Codefirst
+- Dan Trevino
+- [customessaymeister](https://www.customessaymeister.com/)
+- [blokt](https://blokt.com/)
+- [Loomio](https://www.loomio.org/)
 - Hannes Kochniß
-
 
 ### $20+
 - Michael Marti
 - [Aeroden](https://www.aeroden.com) <!-- Adrian Belovic -->
-- Sam Mitchell
-- David Hess
 - Jay Blanchard
 - Christo Crampton
-- Team Of Monkeys
+- Team of Monkeys
 - Robin Paolini
 - [Integra CCS](https://www.integraccs.com/)
 - Joel Hatch
-- David Briscese
 - Juha Vehnia
 - Kent Johnson
-- [White Rabbit Express](https://www.whiterabbitexpress.com/) <!-- Max Hodges -->
 - Working Group Two
-- Yaroslav Dobzhanskij
+- Kyle Lawhorn
+- Jason Frueh
+- Austin Ginder
+- Brad Stewart
 
 ### $10+
-- Espen Bratberg
-- Ivan Vedernikov
 - Chava Sobreyra
 - Costa Huang
 - Paul
-- Code Fortitude
-- Phillippe Genois
+- Philippe Genois
 - Sam Bosell
-- Cliff Hess
 - Omar Spira
 - Jiří Žižka
-- Dejan Kovac
-- Anythony Estebe
-- Eeico Wentrup
-- Chris Britton
-- Matthew O'Leary
+- Anthony Estebe
+- Eelco Wentrup
 - Mike Margerum
 - Mark Freedman
-- Eric Nguyen
 - Alvin Wang
 - Jadranko Dragoje
 - Stanislovas Janonis
@@ -73,30 +69,53 @@ You can join them in supporting Vuetify.js by [pledging on Patreon](https://www.
 - Idea Junction Ltd.
 - Michael Hipp
 - Keyur Desai
-- Casey Dwyer
-- Bohdan Kokotko
 - Blaine Landowski
 - Paul Whittemore
-- Alexander Weiher
 - Helmi
 - Hexodus
 - Pierre Vanhulst
 - Brett Lindenberg
-- Andrew Harvey
 - Cảnh Kiều
 - Dave Willenberg
 - James Chang
-- Maxence Rose
 - YubiGeek
-- Omar Abu Samra
-- MEHMET SAGLAM
 - Shu Ogawa
-- Rich Harris
-- Dan Trevino
 - Daan Roet
-- Rollin Crittendon
 - Quentin Casares
 - Jeremy Hall
 - Harrison Leong
 - Cameron Cox
-- Philipp Naderer-Puiu
+- Harold Bruton
+- Daaron Dwyer
+- Adam Kaput
+- Eric Helgeson
+- Glen Azzopardi
+- Rich Harris
+- Jilson Thomas
+- Boris Dayma
+- Jaeyoung Lee
+- Nathanael Björkgård
+- Göran Ehrsson
+- Daniel Rivers
+- Tom McGee
+- Justin Sheppard
+- Steve Drucker
+- Morgan Benton
+- Christopher Bartling
+- Matheus Fonseca
+- Stephen Elliot
+- Jan Hjørdie
+- Chirstian Burkhard
+- Mateusz Gilewicz
+- Quitin Donnell henry
+- Salty Fish
+- Graham Hunter
+- Erik Vavro
+- Bohdan Kokotko
+- Daniel Chote
+- Mohammed Alkhuzayyim
+- Jonty Brook
+- Jose Rojas
+- Sean Kimball
+- MEHMET SAGLAM
+- Mark Couvaras

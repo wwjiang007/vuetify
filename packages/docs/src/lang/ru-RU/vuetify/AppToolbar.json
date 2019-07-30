@@ -1,0 +1,21 @@
+{
+  "archived": "архив документации",
+  "bug": "Сообщить об ошибке",
+  "codepen": "Шаблон Codepen",
+  "cognito": "Модуль Cognito",
+  "community": "Сообщество Discord",
+  "directives": "Директивы",
+  "documentation": "Документация",
+  "ecosystem": "Экосистема",
+  "eslint": "Конфигурация ESLint",
+  "getHelp": "Поддержка",
+  "issues": "Github issue board",
+  "latest": "Последние релизы",
+  "medium": "Публикации на Medium",
+  "quickLinks": "Быстрые ссылки",
+  "reddit": "Reddit",
+  "stack": "Stack Overflow",
+  "store": "Магазин",
+  "support": "поддержка",
+  "themeGenerator": "Генератор тем"
+}
