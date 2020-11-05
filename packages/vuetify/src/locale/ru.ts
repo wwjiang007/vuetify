@@ -1,17 +1,21 @@
 export default {
+  badge: 'знак',
   close: 'Закрыть',
   dataIterator: {
-    pageText: '{0}-{1} из {2}',
     noResultsText: 'Не найдено подходящих записей',
     loadingText: 'Запись загружается...',
   },
   dataTable: {
     itemsPerPageText: 'Строк на странице:',
     ariaLabel: {
-      sortDescending: ': Упорядочено по нисходящей. Активируйте, чтобы убрать сортировку.',
-      sortAscending: ': Упорядочено во восходящей. Активируйте для упорядочивания по ниcходящей.',
-      sortNone: ': Не упорядочено. Активируйте для упорядочивания по восходящей.',
+      sortDescending: 'Упорядочено по убыванию.',
+      sortAscending: 'Упорядочено по возрастанию.',
+      sortNone: 'Не упорядочено.',
+      activateNone: 'Активируйте, чтобы убрать сортировку.',
+      activateDescending: 'Активируйте для упорядочивания убыванию.',
+      activateAscending: 'Активируйте для упорядочивания по возрастанию.',
     },
+    sortBy: 'Сортировать по',
   },
   dataFooter: {
     itemsPerPageText: 'Записей на странице:',
@@ -20,14 +24,22 @@ export default {
     prevPage: 'Предыдущая страница',
     firstPage: 'Первая страница',
     lastPage: 'Последняя страница',
+    pageText: '{0}-{1} из {2}',
   },
   datePicker: {
     itemsSelected: '{0} выбран',
+    nextMonthAriaLabel: 'Следующий месяц',
+    nextYearAriaLabel: 'Следующий год',
+    prevMonthAriaLabel: 'Прошлый месяц',
+    prevYearAriaLabel: 'Предыдущий год',
   },
   noDataText: 'Отсутствуют данные',
   carousel: {
-    prev: 'Предыдущий визуальный',
-    next: 'Следующий визуальный',
+    prev: 'Предыдущий слайд',
+    next: 'Следующий слайд',
+    ariaLabel: {
+      delimiter: 'Слайд {0} из {1}',
+    },
   },
   calendar: {
     moreEvents: 'Еще {0}',
@@ -35,5 +47,18 @@ export default {
   fileInput: {
     counter: 'Файлов: {0}',
     counterSize: 'Файлов: {0} (всего {1})',
+  },
+  timePicker: {
+    am: 'AM',
+    pm: 'PM',
+  },
+  pagination: {
+    ariaLabel: {
+      wrapper: 'Навигация по страницам',
+      next: 'Следующая страница',
+      previous: 'Предыдущая страница',
+      page: 'Перейти на страницу {0}',
+      currentPage: 'Текущая страница, Страница {0}',
+    },
   },
 }

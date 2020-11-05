@@ -1,29 +1,15 @@
-import 'vuetify/dist/vuetify.css'
-import '@mdi/font/css/materialdesignicons.css'
-import 'prismjs/themes/prism-tomorrow.css'
-import 'es6-promise/auto'
-
-import { createApp } from './main'
-import WebFontLoader from 'webfontloader'
-
+// Utilties
 import 'intersection-observer'
+import { createApp } from './main'
 
-// async load fonts
-WebFontLoader.load({
-  google: {
-    families: [
-      'Roboto:100,300,400,500,700,900',
-      'Roboto+Mono:500',
-      'Material+Icons',
-    ],
-  },
-})
+// Globals
+import { IN_BROWSER } from '@/util/globals'
 
 createApp({
   start ({ app, router, store }) {
     // prime the store with server-initialized state.
     // the state is determined during SSR and inlined in the page markup.
-    if (window.__INITIAL_STATE__) {
+    if (IN_BROWSER && window.__INITIAL_STATE__) {
       store.replaceState(window.__INITIAL_STATE__)
     }
 
@@ -32,25 +18,26 @@ createApp({
     // the data that we already have. Using router.beforeResolve() so that all
     // async components are resolved.
     router.beforeResolve((to, from, next) => {
+      let diffed = false
       const matched = router.getMatchedComponents(to)
       const prevMatched = router.getMatchedComponents(from)
-      let diffed = false
       const activated = matched.filter((c, i) => {
         return diffed || (diffed = (prevMatched[i] !== c))
       })
 
       if (!activated.length) return next()
 
-      Promise.all([
-        ...activated.map(c => {
-          if (c.asyncData) {
-            return c.asyncData({
+      Promise.all(
+        activated.map(c => {
+          const asyncData = c._Ctor[0].options.asyncData
+          return asyncData
+            ? asyncData({
               store,
               route: to,
             })
-          }
+            : Promise.resolve()
         }),
-      ]).finally(next)
+      ).finally(next)
     })
 
     // wait until router has resolved all async before hooks

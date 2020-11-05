@@ -1,4 +1,8 @@
+// Styles
 import './VImg.sass'
+
+// Directives
+import intersect from '../../directives/intersect'
 
 // Types
 import { VNode } from 'vue'
@@ -7,8 +11,13 @@ import { PropValidator } from 'vue/types/options'
 // Components
 import VResponsive from '../VResponsive'
 
+// Mixins
+import Themeable from '../../mixins/themeable'
+
 // Utils
-import { consoleError, consoleWarn } from '../../util/console'
+import mixins from '../../util/mixins'
+import mergeData from '../../util/mergeData'
+import { consoleWarn } from '../../util/console'
 
 // not intended for public use, this is passed in by vuetify-loader
 export interface srcObject {
@@ -18,15 +27,33 @@ export interface srcObject {
   aspect: number
 }
 
+const hasIntersect = typeof window !== 'undefined' && 'IntersectionObserver' in window
+
 /* @vue/component */
-export default VResponsive.extend({
+export default mixins(
+  VResponsive,
+  Themeable,
+).extend({
   name: 'v-img',
+
+  directives: { intersect },
 
   props: {
     alt: String,
     contain: Boolean,
+    eager: Boolean,
     gradient: String,
     lazySrc: String,
+    options: {
+      type: Object,
+      // For more information on types, navigate to:
+      // https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API
+      default: () => ({
+        root: undefined,
+        rootMargin: undefined,
+        threshold: undefined,
+      }),
+    } as PropValidator<IntersectionObserverInit>,
     position: {
       type: String,
       default: 'center center',
@@ -50,6 +77,7 @@ export default VResponsive.extend({
       isLoading: true,
       calculatedAspectRatio: undefined as number | undefined,
       naturalWidth: undefined as number | undefined,
+      hasError: false,
     }
   },
 
@@ -58,21 +86,21 @@ export default VResponsive.extend({
       return Number(this.normalisedSrc.aspect || this.calculatedAspectRatio)
     },
     normalisedSrc (): srcObject {
-      return typeof this.src === 'string'
+      return this.src && typeof this.src === 'object'
         ? {
-          src: this.src,
-          srcset: this.srcset,
-          lazySrc: this.lazySrc,
-          aspect: Number(this.aspectRatio),
-        } : {
           src: this.src.src,
           srcset: this.srcset || this.src.srcset,
           lazySrc: this.lazySrc || this.src.lazySrc,
           aspect: Number(this.aspectRatio || this.src.aspect),
+        } : {
+          src: this.src,
+          srcset: this.srcset,
+          lazySrc: this.lazySrc,
+          aspect: Number(this.aspectRatio || 0),
         }
     },
     __cachedImage (): VNode | [] {
-      if (!(this.normalisedSrc.src || this.normalisedSrc.lazySrc)) return []
+      if (!(this.normalisedSrc.src || this.normalisedSrc.lazySrc || this.gradient)) return []
 
       const backgroundImage: string[] = []
       const src = this.isLoading ? this.normalisedSrc.lazySrc : this.currentSrc
@@ -94,6 +122,7 @@ export default VResponsive.extend({
         key: +this.isLoading,
       })
 
+      /* istanbul ignore if */
       if (!this.transition) return image
 
       return this.$createElement('transition', {
@@ -107,7 +136,8 @@ export default VResponsive.extend({
 
   watch: {
     src () {
-      if (!this.isLoading) this.init()
+      // Force re-init when src changes
+      if (!this.isLoading) this.init(undefined, undefined, true)
       else this.loadImage()
     },
     '$vuetify.breakpoint.width': 'getSrc',
@@ -118,7 +148,20 @@ export default VResponsive.extend({
   },
 
   methods: {
-    init () {
+    init (
+      entries?: IntersectionObserverEntry[],
+      observer?: IntersectionObserver,
+      isIntersecting?: boolean
+    ) {
+      // If the current browser supports the intersection
+      // observer api, the image is not observable, and
+      // the eager prop isn't being used, do not load
+      if (
+        hasIntersect &&
+        !isIntersecting &&
+        !this.eager
+      ) return
+
       if (this.normalisedSrc.lazySrc) {
         const lazyImg = new Image()
         lazyImg.src = this.normalisedSrc.lazySrc
@@ -133,11 +176,7 @@ export default VResponsive.extend({
       this.$emit('load', this.src)
     },
     onError () {
-      consoleError(
-        `Image load failed\n\n` +
-        `src: ${this.normalisedSrc.src}`,
-        this
-      )
+      this.hasError = true
       this.$emit('error', this.src)
     },
     getSrc () {
@@ -165,6 +204,7 @@ export default VResponsive.extend({
       }
       image.onerror = this.onError
 
+      this.hasError = false
       image.src = this.normalisedSrc.src
       this.sizes && (image.sizes = this.sizes)
       this.normalisedSrc.srcset && (image.srcset = this.normalisedSrc.srcset)
@@ -180,7 +220,7 @@ export default VResponsive.extend({
           this.naturalWidth = naturalWidth
           this.calculatedAspectRatio = naturalWidth / naturalHeight
         } else {
-          timeout != null && setTimeout(poll, timeout)
+          timeout != null && !this.hasError && setTimeout(poll, timeout)
         }
       }
 
@@ -207,7 +247,10 @@ export default VResponsive.extend({
         if (!this.transition) return placeholder[0]
 
         return this.$createElement('transition', {
-          attrs: { name: this.transition },
+          props: {
+            appear: true,
+            name: this.transition,
+          },
         }, placeholder)
       }
     },
@@ -216,12 +259,26 @@ export default VResponsive.extend({
   render (h): VNode {
     const node = VResponsive.options.render.call(this, h)
 
-    node.data!.staticClass += ' v-image'
-
-    node.data!.attrs = {
-      role: this.alt ? 'img' : undefined,
-      'aria-label': this.alt,
-    }
+    const data = mergeData(node.data!, {
+      staticClass: 'v-image',
+      attrs: {
+        'aria-label': this.alt,
+        role: this.alt ? 'img' : undefined,
+      },
+      class: this.themeClasses,
+      // Only load intersect directive if it
+      // will work in the current browser.
+      directives: hasIntersect
+        ? [{
+          name: 'intersect',
+          modifiers: { once: true },
+          value: {
+            handler: this.init,
+            options: this.options,
+          },
+        }]
+        : undefined,
+    })
 
     node.children = [
       this.__cachedSizer,
@@ -230,6 +287,6 @@ export default VResponsive.extend({
       this.genContent(),
     ] as VNode[]
 
-    return h(node.tag, node.data, node.children)
+    return h(node.tag, data, node.children)
   },
 })

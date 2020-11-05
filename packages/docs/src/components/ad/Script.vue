@@ -1,51 +1,59 @@
 <template>
-  <div :id="id"><!-- Ad --></div>
+  <div :id="id" />
 </template>
 
 <script>
+  // Utilities
+  import { wait } from '@/util/helpers'
+  import { IN_BROWSER } from '@/util/globals'
+
   export default {
+    name: 'AdScript',
+
     props: {
       id: {
         type: String,
-        default: undefined,
+        required: true,
       },
       scriptId: {
         type: String,
-        default: undefined,
+        required: true,
       },
       src: {
         type: String,
-        default: undefined,
+        required: true,
       },
     },
 
-    data: () => ({
-      isBooted: false,
-      script: null,
-    }),
+    data: () => ({ script: null }),
 
-    watch: {
-      '$route.path' () {
-        clearTimeout(this.timeout)
+    async created () {
+      if (!IN_BROWSER) return
 
-        this.timeout = setTimeout(this.serve, 100)
-      },
+      const script = document.createElement('script')
+      const onError = () => this.$emit('script:error')
+
+      script.type = 'text/javascript'
+      script.id = this.scriptId
+      script.src = this.src
+      script.onload = () => this.$emit('script:load')
+      script.onerror = onError
+
+      this.script = script
+
+      await wait(1000)
+
+      // If script fails or is blocked
+      // will only contain script el
+      if (this.$el.children.length <= 1) onError()
     },
 
     mounted () {
-      if (!this.src) return
-
-      const script = document.createElement('script')
-      script.type = 'text/javascript'
-      script.src = this.src
-      script.id = this.scriptId
-
-      if (this.$el) this.$el.append(script)
-      else console.warn('%cPlease consider allowing ads, we\'ve gotta eat too :(', 'font-size: 24px')
+      this.$el && this.$el.appendChild(this.script)
     },
 
-    methods: {
-      serve: () => {}, /* noop */
+    beforeDestroy () {
+      this.$el && this.$el.removeChild(this.script)
     },
   }
 </script>

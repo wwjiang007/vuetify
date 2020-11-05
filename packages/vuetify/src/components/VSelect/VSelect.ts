@@ -8,46 +8,52 @@ import VMenu from '../VMenu'
 import VSelectList from './VSelectList'
 
 // Extensions
+import VInput from '../VInput'
 import VTextField from '../VTextField/VTextField'
 
 // Mixins
 import Comparable from '../../mixins/comparable'
+import Dependent from '../../mixins/dependent'
 import Filterable from '../../mixins/filterable'
 
 // Directives
 import ClickOutside from '../../directives/click-outside'
 
 // Utilities
-import { getPropertyFromItem, keyCodes } from '../../util/helpers'
+import mergeData from '../../util/mergeData'
+import { getPropertyFromItem, getObjectValueByPath, keyCodes } from '../../util/helpers'
 import { consoleError } from '../../util/console'
 
 // Types
 import mixins from '../../util/mixins'
+import { VNode, VNodeDirective, PropType, VNodeData } from 'vue'
 import { PropValidator } from 'vue/types/options'
-import { VNode, VNodeDirective } from 'vue'
+import { SelectItemKey } from 'vuetify/types'
 
 export const defaultMenuProps = {
   closeOnClick: false,
   closeOnContentClick: false,
   disableKeys: true,
   openOnClick: false,
-  maxHeight: 300,
+  maxHeight: 304,
 }
 
 // Types
-type ItemProperty = PropValidator<string | (string | number)[] | ((item: object, fallback?: any) => any)>
 const baseMixins = mixins(
   VTextField,
   Comparable,
+  Dependent,
   Filterable
 )
 
 interface options extends InstanceType<typeof baseMixins> {
   $refs: {
     menu: InstanceType<typeof VMenu>
+    content: HTMLElement
     label: HTMLElement
     input: HTMLInputElement
     'prepend-inner': HTMLElement
+    'append-inner': HTMLElement
     prefix: HTMLElement
     suffix: HTMLElement
   }
@@ -64,38 +70,39 @@ export default baseMixins.extend<options>().extend({
   props: {
     appendIcon: {
       type: String,
-      default: '$vuetify.icons.dropdown',
+      default: '$dropdown',
     },
     attach: {
+      type: null as unknown as PropType<string | boolean | Element | VNode>,
       default: false,
-    } as PropValidator<string | boolean | Element | VNode>,
+    },
     cacheItems: Boolean,
     chips: Boolean,
     clearable: Boolean,
     deletableChips: Boolean,
-    dense: Boolean,
+    disableLookup: Boolean,
     eager: Boolean,
     hideSelected: Boolean,
     items: {
       type: Array,
       default: () => [],
-    },
+    } as PropValidator<any[]>,
     itemColor: {
       type: String,
       default: 'primary',
     },
     itemDisabled: {
-      type: [String, Array, Function],
+      type: [String, Array, Function] as PropType<SelectItemKey>,
       default: 'disabled',
-    } as ItemProperty,
+    },
     itemText: {
-      type: [String, Array, Function],
+      type: [String, Array, Function] as PropType<SelectItemKey>,
       default: 'text',
-    } as ItemProperty,
+    },
     itemValue: {
-      type: [String, Array, Function],
+      type: [String, Array, Function] as PropType<SelectItemKey>,
       default: 'value',
-    } as ItemProperty,
+    },
     menuProps: {
       type: [String, Array, Object],
       default: () => defaultMenuProps,
@@ -109,8 +116,7 @@ export default baseMixins.extend<options>().extend({
   data () {
     return {
       cachedItems: this.cacheItems ? this.items : [],
-      content: null as any,
-      isBooted: false,
+      menuIsBooted: false,
       isMenuActive: false,
       lastItem: 20,
       // As long as a value is defined, show it
@@ -138,6 +144,7 @@ export default baseMixins.extend<options>().extend({
         'v-select--chips': this.hasChips,
         'v-select--chips--small': this.smallChips,
         'v-select--is-menu-active': this.isMenuActive,
+        'v-select--is-multi': this.multiple,
       }
     },
     /* Used by other components to overwrite */
@@ -147,7 +154,7 @@ export default baseMixins.extend<options>().extend({
     computedOwns (): string {
       return `list-${this._uid}`
     },
-    counterValue (): number {
+    computedCounterValue (): number {
       return this.multiple
         ? this.selectedItems.length
         : (this.getText(this.selectedItems[0]) || '').toString().length
@@ -155,11 +162,12 @@ export default baseMixins.extend<options>().extend({
     directives (): VNodeDirective[] | undefined {
       return this.isFocused ? [{
         name: 'click-outside',
-        value: this.blur,
-        args: {
+        value: {
+          handler: this.blur,
           closeConditional: this.closeConditional,
+          include: () => this.getOpenDependentElements(),
         },
-      } as VNodeDirective] : undefined
+      }] : undefined
     },
     dynamicHeight () {
       return 'auto'
@@ -190,11 +198,11 @@ export default baseMixins.extend<options>().extend({
           dense: this.dense,
           hideSelected: this.hideSelected,
           items: this.virtualizedItems,
+          itemDisabled: this.itemDisabled,
+          itemText: this.itemText,
+          itemValue: this.itemValue,
           noDataText: this.$vuetify.lang.t(this.noDataText),
           selectedItems: this.selectedItems,
-          itemDisabled: this.itemDisabled,
-          itemValue: this.itemValue,
-          itemText: this.itemText,
         },
         on: {
           select: this.selectItem,
@@ -244,19 +252,8 @@ export default baseMixins.extend<options>().extend({
       this.initialValue = val
       this.setSelectedItems()
     },
-    isBooted () {
-      this.$nextTick(() => {
-        if (this.content && this.content.addEventListener) {
-          this.content.addEventListener('scroll', this.onScroll, false)
-        }
-      })
-    },
     isMenuActive (val) {
-      this.$nextTick(() => this.onMenuActiveChange(val))
-
-      if (!val) return
-
-      this.isBooted = true
+      window.setTimeout(() => this.onMenuActiveChange(val))
     },
     items: {
       immediate: true,
@@ -275,10 +272,6 @@ export default baseMixins.extend<options>().extend({
     },
   },
 
-  mounted () {
-    this.content = this.$refs.menu && (this.$refs.menu as { [key: string]: any }).$refs.content
-  },
-
   methods: {
     /** @public */
     blur (e?: Event) {
@@ -290,24 +283,29 @@ export default baseMixins.extend<options>().extend({
     /** @public */
     activateMenu () {
       if (
-        this.disabled ||
-        this.readonly ||
+        !this.isInteractive ||
         this.isMenuActive
       ) return
 
       this.isMenuActive = true
     },
     clearableCallback () {
-      this.setValue(this.multiple ? [] : undefined)
+      this.setValue(this.multiple ? [] : null)
+      this.setMenuIndex(-1)
       this.$nextTick(() => this.$refs.input && this.$refs.input.focus())
 
       if (this.openOnClear) this.isMenuActive = true
     },
     closeConditional (e: Event) {
+      if (!this.isMenuActive) return true
+
       return (
+        !this._isDestroyed &&
+
         // Click originates from outside the menu content
-        this.content &&
-        !this.content.contains(e.target) &&
+        // Multiple selects don't close when an item is clicked
+        (!this.getContent() ||
+        !this.getContent().contains(e.target as Node)) &&
 
         // Click originates from outside the element
         this.$el &&
@@ -331,10 +329,12 @@ export default baseMixins.extend<options>().extend({
 
       return (this.internalValue || []).findIndex((i: object) => this.valueComparator(this.getValue(i), itemValue))
     },
+    getContent () {
+      return this.$refs.menu && this.$refs.menu.$refs.content
+    },
     genChipSelection (item: object, index: number) {
       const isDisabled = (
-        this.disabled ||
-        this.readonly ||
+        !this.isInteractive ||
         this.getDisabled(item)
       )
 
@@ -355,16 +355,15 @@ export default baseMixins.extend<options>().extend({
 
             this.selectedIndex = index
           },
-          focus,
           'click:close': () => this.onChipInput(item),
         },
         key: JSON.stringify(this.getValue(item)),
       }, this.getText(item))
     },
     genCommaSelection (item: object, index: number, last: boolean) {
-      const color = index === this.selectedIndex && this.color
+      const color = index === this.selectedIndex && this.computedColor
       const isDisabled = (
-        this.disabled ||
+        !this.isInteractive ||
         this.getDisabled(item)
       )
 
@@ -402,21 +401,59 @@ export default baseMixins.extend<options>().extend({
           this.suffix ? this.genAffix('suffix') : null,
           this.genClearIcon(),
           this.genIconSlot(),
+          this.genHiddenInput(),
         ]),
         this.genMenu(),
         this.genProgress(),
       ]
     },
+    genIcon (
+      type: string,
+      cb?: (e: Event) => void,
+      extraData?: VNodeData
+    ) {
+      const icon = VInput.options.methods.genIcon.call(this, type, cb, extraData)
+
+      if (type === 'append') {
+        // Don't allow the dropdown icon to be focused
+        icon.children![0].data = mergeData(icon.children![0].data!, {
+          attrs: {
+            tabindex: icon.children![0].componentOptions!.listeners && '-1',
+            'aria-hidden': 'true',
+            'aria-label': undefined,
+          },
+        })
+      }
+
+      return icon
+    },
     genInput (): VNode {
       const input = VTextField.options.methods.genInput.call(this)
 
-      input.data!.domProps!.value = null
-      input.data!.attrs!.readonly = true
-      input.data!.attrs!.type = 'text'
-      input.data!.attrs!['aria-readonly'] = true
-      input.data!.on!.keypress = this.onKeyPress
+      delete input.data!.attrs!.name
+
+      input.data = mergeData(input.data!, {
+        domProps: { value: null },
+        attrs: {
+          readonly: true,
+          type: 'text',
+          'aria-readonly': String(this.isReadonly),
+          'aria-activedescendant': getObjectValueByPath(this.$refs.menu, 'activeTile.id'),
+          autocomplete: getObjectValueByPath(input.data!, 'attrs.autocomplete', 'off'),
+        },
+        on: { keypress: this.onKeyPress },
+      })
 
       return input
+    },
+    genHiddenInput (): VNode {
+      return this.$createElement('input', {
+        domProps: { value: this.lazyValue },
+        attrs: {
+          type: 'hidden',
+          name: this.attrs$.name,
+        },
+      })
     },
     genInputSlot (): VNode {
       const render = VTextField.options.methods.genInputSlot.call(this)
@@ -477,6 +514,7 @@ export default baseMixins.extend<options>().extend({
             this.isMenuActive = val
             this.isFocused = val
           },
+          scroll: this.onScroll,
         },
         ref: 'menu',
       }, [this.genList()])
@@ -519,7 +557,7 @@ export default baseMixins.extend<options>().extend({
           this.selectedIndex = index
         },
         selected: index === this.selectedIndex,
-        disabled: this.disabled || this.readonly,
+        disabled: !this.isInteractive,
       })
     },
     getMenuIndex () {
@@ -549,15 +587,19 @@ export default baseMixins.extend<options>().extend({
       }
       this.selectedIndex = -1
     },
-    onClick () {
-      if (this.isDisabled) return
+    onClick (e: MouseEvent) {
+      if (!this.isInteractive) return
 
-      this.isMenuActive = true
+      if (!this.isAppendInner(e.target)) {
+        this.isMenuActive = true
+      }
 
       if (!this.isFocused) {
         this.isFocused = true
         this.$emit('focus')
       }
+
+      this.$emit('click', e)
     },
     onEscDown (e: Event) {
       e.preventDefault()
@@ -567,7 +609,11 @@ export default baseMixins.extend<options>().extend({
       }
     },
     onKeyPress (e: KeyboardEvent) {
-      if (this.multiple) return
+      if (
+        this.multiple ||
+        !this.isInteractive ||
+        this.disableLookup
+      ) return
 
       const KEYBOARD_LOOKUP_THRESHOLD = 1000 // milliseconds
       const now = performance.now()
@@ -584,11 +630,15 @@ export default baseMixins.extend<options>().extend({
       })
       const item = this.allItems[index]
       if (index !== -1) {
+        this.lastItem = Math.max(this.lastItem, index + 5)
         this.setValue(this.returnObject ? item : this.getValue(item))
+        this.$nextTick(() => this.$refs.menu.getTiles())
         setTimeout(() => this.setMenuIndex(index))
       }
     },
     onKeyDown (e: KeyboardEvent) {
+      if (this.isReadonly && e.keyCode !== keyCodes.tab) return
+
       const keyCode = e.keyCode
       const menu = this.$refs.menu
 
@@ -598,12 +648,17 @@ export default baseMixins.extend<options>().extend({
         keyCodes.space,
       ].includes(keyCode)) this.activateMenu()
 
+      this.$emit('keydown', e)
+
       if (!menu) return
 
       // If menu is active, allow default
       // listIndex change from menu
       if (this.isMenuActive && keyCode !== keyCodes.tab) {
-        menu.changeListIndex(e)
+        this.$nextTick(() => {
+          menu.changeListIndex(e)
+          this.$emit('update:list-index', menu.listIndex)
+        })
       }
 
       // If menu is not active, up and down can do
@@ -646,22 +701,17 @@ export default baseMixins.extend<options>().extend({
       }
     },
     onMouseUp (e: MouseEvent) {
-      if (this.hasMouseDown && e.which !== 3) {
-        const appendInner = this.$refs['append-inner']
-
+      // eslint-disable-next-line sonarjs/no-collapsible-if
+      if (
+        this.hasMouseDown &&
+        e.which !== 3 &&
+        this.isInteractive
+      ) {
         // If append inner is present
         // and the target is itself
         // or inside, toggle menu
-        if (this.isMenuActive &&
-          appendInner &&
-          (appendInner === e.target ||
-          (appendInner as { [key: string]: any }).contains(e.target))
-        ) {
+        if (this.isAppendInner(e.target)) {
           this.$nextTick(() => (this.isMenuActive = !this.isMenuActive))
-        // If user is clicking in the container
-        // and field is enclosed, activate it
-        } else if (this.isEnclosed && !this.isDisabled) {
-          this.isMenuActive = true
         }
       }
 
@@ -669,14 +719,14 @@ export default baseMixins.extend<options>().extend({
     },
     onScroll () {
       if (!this.isMenuActive) {
-        requestAnimationFrame(() => (this.content.scrollTop = 0))
+        requestAnimationFrame(() => (this.getContent().scrollTop = 0))
       } else {
-        if (this.lastItem >= this.computedItems.length) return
+        if (this.lastItem > this.computedItems.length) return
 
         const showMoreItems = (
-          this.content.scrollHeight -
-          (this.content.scrollTop +
-          this.content.clientHeight)
+          this.getContent().scrollHeight -
+          (this.getContent().scrollTop +
+          this.getContent().clientHeight)
         ) < 200
 
         if (showMoreItems) {
@@ -728,9 +778,13 @@ export default baseMixins.extend<options>().extend({
 
       // Cycle through available values to achieve
       // select native behavior
-      menu.getTiles()
-      keyCodes.up === keyCode ? menu.prevTile() : menu.nextTile()
-      menu.activeTile && menu.activeTile.click()
+      menu.isBooted = true
+
+      window.requestAnimationFrame(() => {
+        menu.getTiles()
+        keyCodes.up === keyCode ? menu.prevTile() : menu.nextTile()
+        menu.activeTile && menu.activeTile.click()
+      })
     },
     selectItem (item: object) {
       if (!this.multiple) {
@@ -795,6 +849,13 @@ export default baseMixins.extend<options>().extend({
       const oldValue = this.internalValue
       this.internalValue = value
       value !== oldValue && this.$emit('change', value)
+    },
+    isAppendInner (target: any) {
+      // return true if append inner is present
+      // and the target is itself or inside
+      const appendInner = this.$refs['append-inner']
+
+      return appendInner && (appendInner === target || appendInner.contains(target))
     },
   },
 })

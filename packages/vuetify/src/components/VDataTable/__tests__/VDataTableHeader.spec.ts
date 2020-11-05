@@ -2,6 +2,7 @@ import VDataTableHeader from '../VDataTableHeader'
 import { Lang } from '../../../services/lang'
 import ripple from '../../../directives/ripple'
 import VSelect from '../../VSelect/VSelect'
+import { preset } from '../../../presets/default'
 
 import {
   mount,
@@ -17,8 +18,8 @@ const testHeaders = [
     sortable: false,
     value: 'name',
   },
-  { text: 'Calories', value: 'calories' },
-  { text: 'Fat (g)', value: 'fat' },
+  { text: 'Calories', width: 50, value: 'calories' },
+  { text: 'Fat (g)', width: '50em', value: 'fat' },
   { text: 'Carbs (g)', value: 'carbs' },
   { text: 'Protein (g)', value: 'protein' },
   { text: 'Iron (%)', value: 'iron' },
@@ -26,7 +27,7 @@ const testHeaders = [
 
 Vue.prototype.$vuetify = {
   rtl: false,
-  lang: new Lang(),
+  lang: new Lang(preset),
   theme: {
     dark: false,
   },
@@ -38,13 +39,15 @@ describe('VDataTableHeader.ts', () => {
   let mountFunction: (options?: MountOptions<Instance>, isMobile?: boolean) => Wrapper<Instance>
 
   ;[false, true].forEach(isMobile => {
-    describe(isMobile ? 'mobile' : 'desktop', () => { // eslint-disable-line jest/valid-describe
+    describe(isMobile ? 'mobile' : 'desktop', () => { // eslint-disable-line jest/valid-title
       beforeEach(() => {
         document.body.setAttribute('data-app', 'true')
 
         mountFunction = (options?: MountOptions<Instance>) => {
           return mount(VDataTableHeader, {
             ...options,
+            // https://github.com/vuejs/vue-test-utils/issues/1130
+            sync: false,
             propsData: {
               headers: testHeaders,
               mobile: isMobile,

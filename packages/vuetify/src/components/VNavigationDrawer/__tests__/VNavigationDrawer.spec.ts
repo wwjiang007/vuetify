@@ -1,7 +1,16 @@
-import { Application } from '../../../services/application'
+// Components
 import VNavigationDrawer from '../VNavigationDrawer'
-import { resizeWindow, touch } from '../../../../test'
 
+// Services
+import { Application } from '../../../services/application'
+import { Breakpoint } from '../../../services/breakpoint'
+import { preset } from '../../../presets/default'
+
+// Utilities
+import {
+  resizeWindow,
+  touch,
+} from '../../../../test'
 import {
   mount,
   MountOptions,
@@ -10,12 +19,14 @@ import {
 
 beforeEach(() => resizeWindow(1920, 1080))
 
-describe('VNavigationDrawer', () => {
+describe('VNavigationDrawer', () => { // eslint-disable-line max-statements
   type Instance = InstanceType<typeof VNavigationDrawer>
   let mountFunction: (options?: MountOptions<Instance>) => Wrapper<Instance>
 
   beforeEach(() => {
     mountFunction = (options?: MountOptions<Instance>) => {
+      const breakpoint = new Breakpoint(preset)
+      breakpoint.init()
       return mount(VNavigationDrawer, {
         ...options,
         mocks: {
@@ -24,9 +35,7 @@ describe('VNavigationDrawer', () => {
             theme: {
               dark: false,
             },
-            breakpoint: {
-              width: 1920,
-            },
+            breakpoint,
             application: new Application(),
           },
         },
@@ -61,11 +70,13 @@ describe('VNavigationDrawer', () => {
   })
 
   it('should not resize the content when permanent and stateless', async () => {
-    const wrapper = mountFunction({ propsData: {
-      app: true,
-      permanent: true,
-      stateless: true,
-    } })
+    const wrapper = mountFunction({
+      propsData: {
+        app: true,
+        permanent: true,
+        stateless: true,
+      },
+    })
 
     await wrapper.vm.$nextTick()
     expect(wrapper.vm.$vuetify.application.left).toBe(256)
@@ -142,9 +153,11 @@ describe('VNavigationDrawer', () => {
   })
 
   it('should update content padding when temporary state is changed', async () => {
-    const wrapper = mountFunction({ propsData: {
-      app: true,
-    } })
+    const wrapper = mountFunction({
+      propsData: {
+        app: true,
+      },
+    })
     await wrapper.vm.$nextTick()
 
     expect(wrapper.vm.$vuetify.application.left).toBe(256)
@@ -157,9 +170,11 @@ describe('VNavigationDrawer', () => {
   })
 
   it('should update content padding when permanent state is changed', async () => {
-    const wrapper = mountFunction({ propsData: {
-      app: true,
-    } })
+    const wrapper = mountFunction({
+      propsData: {
+        app: true,
+      },
+    })
     await resizeWindow(800)
     wrapper.vm.$vuetify.breakpoint.width = 800
     await wrapper.vm.$nextTick()
@@ -174,15 +189,17 @@ describe('VNavigationDrawer', () => {
   })
 
   it('should update content padding when miniVariant is changed', async () => {
-    const wrapper = mountFunction({ propsData: {
-      app: true,
-    } })
+    const wrapper = mountFunction({
+      propsData: {
+        app: true,
+      },
+    })
     await wrapper.vm.$nextTick()
 
     expect(wrapper.vm.$vuetify.application.left).toBe(256)
 
     wrapper.setProps({ miniVariant: true })
-    expect(wrapper.vm.$vuetify.application.left).toBe(80)
+    expect(wrapper.vm.$vuetify.application.left).toBe(56)
 
     wrapper.setProps({ miniVariant: false })
     expect(wrapper.vm.$vuetify.application.left).toBe(256)
@@ -190,9 +207,11 @@ describe('VNavigationDrawer', () => {
 
   it('should not remain mobile when temporary is toggled', async () => {
     await resizeWindow(800)
-    const wrapper = mountFunction({ propsData: {
-      temporary: true,
-    } })
+    const wrapper = mountFunction({
+      propsData: {
+        temporary: true,
+      },
+    })
 
     await resizeWindow(1920)
     expect(wrapper.vm.isMobile).toBe(false)
@@ -217,11 +236,13 @@ describe('VNavigationDrawer', () => {
 
   it('should update content padding when mobile is toggled', async () => {
     const input = jest.fn()
-    const wrapper = mountFunction({ propsData: {
-      app: true,
-      fixed: true,
-      value: true,
-    } })
+    const wrapper = mountFunction({
+      propsData: {
+        app: true,
+        fixed: true,
+        value: true,
+      },
+    })
     await wrapper.vm.$nextTick()
 
     wrapper.vm.$on('input', input)
@@ -303,6 +324,76 @@ describe('VNavigationDrawer', () => {
     expect(update).toHaveBeenCalled()
   })
 
+  it('should open on mouseenter when mini-variant = true and expand-on-hover = true', async () => {
+    const update = jest.fn()
+    const wrapper = mountFunction({
+      propsData: {
+        miniVariant: true,
+        expandOnHover: true,
+      },
+      listeners: {
+        'update:mini-variant': update,
+      },
+    })
+
+    wrapper.trigger('mouseenter')
+    await wrapper.vm.$nextTick()
+
+    expect(update).toHaveBeenCalledWith(false)
+    expect(wrapper.classes('v-navigation-drawer--open-on-hover')).toBe(true)
+    expect(wrapper.classes('v-navigation-drawer--mini-variant')).toBe(false)
+  })
+
+  it('should emit `update:mini-variant` when mouseenter/mouseleave', async () => {
+    const calls: string[] = []
+    const update = jest.fn(val => calls.push(val))
+    const wrapper = mountFunction({
+      propsData: {
+        miniVariant: true,
+        expandOnHover: true,
+      },
+      listeners: {
+        'update:mini-variant': (value: boolean) => {
+          wrapper.setProps({ miniVariant: value })
+          update(value)
+        },
+      },
+    })
+
+    wrapper.trigger('mouseenter')
+    await wrapper.vm.$nextTick()
+
+    wrapper.trigger('mouseleave')
+    await wrapper.vm.$nextTick()
+
+    expect(calls).toEqual([false, true])
+  })
+
+  it('should emit `update:mini-variant` when expandOnHover has been changed', async () => {
+    const calls: string[] = []
+    const update = jest.fn(val => calls.push(val))
+    const wrapper = mountFunction({
+      propsData: {
+        miniVariant: false,
+        expandOnHover: false,
+      },
+      listeners: {
+        'update:mini-variant': (value: boolean) => {
+          wrapper.setProps({ miniVariant: value })
+          update(value)
+        },
+      },
+    })
+
+    wrapper.setProps({ expandOnHover: true })
+    await wrapper.vm.$nextTick()
+
+    wrapper.setProps({ expandOnHover: false })
+    await wrapper.vm.$nextTick()
+
+    expect(calls).toEqual([true, false])
+  })
+
   it('should react to open / close from touch events', async () => {
     const wrapper = mountFunction({
       attachToDocument: true,
@@ -355,7 +446,7 @@ describe('VNavigationDrawer', () => {
     })
 
     expect(wrapper.vm.isMouseover).toBe(false)
-    expect(wrapper.vm.computedWidth).toBe(80)
+    expect(wrapper.vm.computedWidth).toBe(56)
 
     wrapper.trigger('mouseenter')
     expect(wrapper.vm.isMouseover).toBe(true)
@@ -363,7 +454,7 @@ describe('VNavigationDrawer', () => {
 
     wrapper.trigger('mouseleave')
     expect(wrapper.vm.isMouseover).toBe(false)
-    expect(wrapper.vm.computedWidth).toBe(80)
+    expect(wrapper.vm.computedWidth).toBe(56)
   })
 
   it('should clip top', () => {

@@ -1,17 +1,21 @@
 export default {
+  badge: 'Значка',
   close: 'Close',
   dataIterator: {
-    pageText: '{0}-{1} од {2}',
     noResultsText: 'Ни један запис није пронађен',
     loadingText: 'Loading item...',
   },
   dataTable: {
     itemsPerPageText: 'Редова по страници:',
     ariaLabel: {
-      sortDescending: ': Sorted descending. Activate to remove sorting.',
-      sortAscending: ': Sorted ascending. Activate to sort descending.',
-      sortNone: ': Not sorted. Activate to sort ascending.',
+      sortDescending: 'Sorted descending.',
+      sortAscending: 'Sorted ascending.',
+      sortNone: 'Not sorted.',
+      activateNone: 'Activate to remove sorting.',
+      activateDescending: 'Activate to sort descending.',
+      activateAscending: 'Activate to sort ascending.',
     },
+    sortBy: 'Sort by',
   },
   dataFooter: {
     itemsPerPageText: 'Ставки по страници:',
@@ -20,14 +24,22 @@ export default {
     prevPage: 'Претходна страница',
     firstPage: 'Прва страница',
     lastPage: 'Последња страница',
+    pageText: '{0}-{1} од {2}',
   },
   datePicker: {
     itemsSelected: '{0} одабрано',
+    nextMonthAriaLabel: 'Следећег месеца',
+    nextYearAriaLabel: 'Следеће године',
+    prevMonthAriaLabel: 'Претходни мјесец',
+    prevYearAriaLabel: 'Претходна година',
   },
   noDataText: 'Нема доступних података',
   carousel: {
     prev: 'Превиоус висуал',
     next: 'Нект висуал',
+    ariaLabel: {
+      delimiter: 'Carousel slide {0} of {1}',
+    },
   },
   calendar: {
     moreEvents: '{0} море',
@@ -35,5 +47,18 @@ export default {
   fileInput: {
     counter: '{0} files',
     counterSize: '{0} files ({1} in total)',
+  },
+  timePicker: {
+    am: 'AM',
+    pm: 'PM',
+  },
+  pagination: {
+    ariaLabel: {
+      wrapper: 'Навигација страницама',
+      next: 'Следећа страница',
+      previous: 'Претходна страница',
+      page: 'Иди на страну {0}',
+      currentPage: 'Тренутна страница, страница {0}',
+    },
   },
 }

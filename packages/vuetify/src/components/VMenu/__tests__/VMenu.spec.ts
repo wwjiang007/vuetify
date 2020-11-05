@@ -9,6 +9,7 @@ import {
   Wrapper,
 } from '@vue/test-utils'
 import { keyCodes } from '../../../util/helpers'
+import { waitAnimationFrame } from '../../../../test'
 
 describe('VMenu.ts', () => {
   type Instance = InstanceType<typeof VMenu>
@@ -17,6 +18,8 @@ describe('VMenu.ts', () => {
   beforeEach(() => {
     mountFunction = (options = {}) => {
       return mount(VMenu, {
+        // https://github.com/vuejs/vue-test-utils/issues/1130
+        sync: false,
         ...options,
         mocks: {
           $vuetify: {
@@ -31,7 +34,7 @@ describe('VMenu.ts', () => {
     const wrapper = mountFunction({
       propsData: {
         value: false,
-        fullWidth: true,
+        eager: true,
       },
       scopedSlots: {
         activator: '<button v-on="props.on"></button>',
@@ -53,10 +56,28 @@ describe('VMenu.ts', () => {
     expect('Unable to locate target [data-app]').toHaveBeenTipped()
   })
 
+  it('should render multiple content nodes', async () => {
+    const wrapper = mountFunction({
+      propsData: {
+        eager: true,
+      },
+      scopedSlots: {
+        activator: '<button v-on="props.on"></button>',
+      },
+      slots: {
+        default: '<span>foo</span><span>bar</span>',
+      },
+    })
+
+    expect(wrapper.html()).toMatchSnapshot()
+    expect('Unable to locate target [data-app]').toHaveBeenTipped()
+  })
+
   it('should round dimensions', async () => {
     const wrapper = mountFunction({
       propsData: {
         value: false,
+        eager: true,
       },
       scopedSlots: {
         activator: '<button v-on="props.on"></button>',
@@ -86,7 +107,7 @@ describe('VMenu.ts', () => {
 
     wrapper.setProps({ value: true })
 
-    await new Promise(resolve => requestAnimationFrame(resolve))
+    await waitAnimationFrame()
 
     expect(content.attributes('style')).toMatchSnapshot()
     expect('Unable to locate target [data-app]').toHaveBeenTipped()
@@ -121,6 +142,7 @@ describe('VMenu.ts', () => {
       methods: { activate },
     })
     expect(activate).toHaveBeenCalled()
+    expect('Unable to locate target [data-app]').toHaveBeenTipped()
   })
 
   it('should update position dynamically', async () => {
@@ -144,6 +166,7 @@ describe('VMenu.ts', () => {
       positionY: 220,
     })
     expect(content.attributes('style')).toMatchSnapshot()
+    expect('Unable to locate target [data-app]').toHaveBeenTipped()
   })
 
   it('should select next and previous tiles and skip non links/disabled', () => {
@@ -190,15 +213,21 @@ describe('VMenu.ts', () => {
   })
 
   it('should accept a custom role or use default', () => {
-    expect(mountFunction().vm.$refs.content.getAttribute('role')).toBe('menu')
     expect(mountFunction({
+      propsData: { eager: true },
+    }).vm.$refs.content.getAttribute('role')).toBe('menu')
+    expect(mountFunction({
+      propsData: { eager: true },
       attrs: { role: 'listbox' },
     }).vm.$refs.content.getAttribute('role')).toBe('listbox')
+
+    expect('Unable to locate target [data-app]').toHaveBeenTipped()
   })
 
   it('should select first or last item when opening menu with up or down key', async () => {
     const event = (keyCode: number) => new KeyboardEvent('keydown', { keyCode })
     const wrapper = mountFunction({
+      propsData: { eager: true },
       scopedSlots: {
         default () {
           return this.$createElement('div', [

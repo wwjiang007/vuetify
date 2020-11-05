@@ -1,16 +1,8 @@
-export interface VuetifyBreakpointOptions {
-  thresholds?: Partial<VuetifyBreakpointThresholds>
-  scrollBarWidth?: number
-}
+// Types
+export type BreakpointName = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
-export interface VuetifyBreakpointThresholds {
-  xs: number
-  sm: number
-  md: number
-  lg: number
-}
-
-export interface VuetifyBreakpoint {
+// Interfaces
+export interface Breakpoint {
   height: number
   lg: boolean
   lgAndDown: boolean
@@ -20,7 +12,7 @@ export interface VuetifyBreakpoint {
   mdAndDown: boolean
   mdAndUp: boolean
   mdOnly: boolean
-  name: string
+  name: BreakpointName
   sm: boolean
   smAndDown: boolean
   smAndUp: boolean
@@ -30,6 +22,21 @@ export interface VuetifyBreakpoint {
   xlOnly: boolean
   xs: boolean
   xsOnly: boolean
-  thresholds: VuetifyBreakpointThresholds
-  scrollbarWidth: number
+  mobile: boolean
+  mobileBreakpoint: number | BreakpointName
+  thresholds: BreakpointThresholds
+  scrollBarWidth: number
+}
+
+export interface BreakpointOptions {
+  mobileBreakpoint?: number | BreakpointName
+  scrollBarWidth?: number
+  thresholds?: Partial<BreakpointThresholds>
+}
+
+export interface BreakpointThresholds {
+  xs: number
+  sm: number
+  md: number
+  lg: number
 }

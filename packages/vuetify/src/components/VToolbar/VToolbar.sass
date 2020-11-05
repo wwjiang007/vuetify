@@ -1,13 +1,20 @@
-@import '../../styles/styles.sass'
 @import './_variables.scss'
+
++theme('v-toolbar.v-sheet') using ($material)
+  background-color: map-get($material, 'toolbar')
+
+
+// Sheet
++sheet(v-toolbar, $toolbar-elevation, $toolbar-border-radius, $toolbar-shaped-border-radius)
 
 // Block
 .v-toolbar
   contain: layout
+  display: block
   flex: 1 1 auto
-  // Needs increased specificity
-  &.v-sheet
-    transition: $toolbar-transition
+  max-width: 100%
+  transition: $toolbar-transition
+  position: relative
 
   +elevation(4)
 
@@ -20,28 +27,30 @@
 .v-toolbar__extension
   padding: $toolbar-content-padding-y $toolbar-content-padding-x
 
-  .v-btn.v-btn--icon
+  .v-btn.v-btn--icon.v-size--default
     height: $toolbar-btn-icon-size
     width: $toolbar-btn-icon-size
 
   > .v-btn.v-btn--icon
     &:first-child
-      margin-left: -#{$toolbar-btn-icon-size / 4}
+      +ltr()
+        margin-left: -#{$toolbar-btn-icon-size / 4}
 
-      + .v-toolbar__title
-        padding-left: $toolbar-title-padding
-
-    &:last-child
-      margin-right: -#{$toolbar-btn-icon-size / 4}
-
-    +rtl()
-      &:first-child
+      +rtl()
         margin-right: -#{$toolbar-btn-icon-size / 4}
 
-        + .v-toolbar__title
+      + .v-toolbar__title
+        +ltr()
+          padding-left: $toolbar-title-padding
+
+        +rtl()
           padding-right: $toolbar-title-padding
 
-      &:last-child
+    &:last-child
+      +ltr()
+        margin-right: -#{$toolbar-btn-icon-size / 4}
+
+      +rtl()
         margin-left: -#{$toolbar-btn-icon-size / 4}
 
   > .v-tabs
@@ -49,7 +58,8 @@
     margin-top: -#{$toolbar-content-padding-y}
     margin-bottom: -#{$toolbar-content-padding-y}
 
-    .v-tabs-bar
+    > .v-slide-group.v-tabs-bar
+      background-color: inherit
       height: inherit
 
     &:first-child
@@ -97,7 +107,6 @@
 .v-toolbar.v-toolbar--absolute
   position: absolute
   top: 0
-  width: 100%
   z-index: 1
 
 .v-toolbar.v-toolbar--bottom
@@ -109,8 +118,14 @@
     white-space: nowrap
 
 .v-toolbar.v-toolbar--collapsed
-  border-bottom-right-radius: 24px
-  width: 112px
+  max-width: $toolbar-collapsed-max-width
+  overflow: hidden
+
+  +ltr()
+    border-bottom-right-radius: $toolbar-collapsed-border-radius
+
+  +rtl()
+    border-bottom-left-radius: $toolbar-collapsed-border-radius
 
   .v-toolbar__title,
   .v-toolbar__extension
@@ -122,8 +137,10 @@
     padding-top: 0
     padding-bottom: 0
 
+// @deprecated
+// TODO: Remove in v3
 .v-toolbar--flat
-  +elevation(0)
+  +elevation(0, true)
 
 .v-toolbar--floating
   display: inline-flex
@@ -133,6 +150,11 @@
     align-items: flex-start
 
   .v-toolbar__title
-    align-self: flex-end
     font-size: 1.5rem
-    padding-bottom: 6px
+    padding-top: $toolbar-promient-padding
+
+  &:not(.v-toolbar--bottom)
+    .v-toolbar__title
+      align-self: flex-end
+      padding-bottom: $toolbar-promient-padding
+      padding-top: 0

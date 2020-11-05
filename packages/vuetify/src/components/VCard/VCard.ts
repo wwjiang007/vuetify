@@ -31,7 +31,6 @@ export default mixins(
       type: [Number, String],
       default: 4,
     },
-    outlined: Boolean,
     raised: Boolean,
   },
 
@@ -44,8 +43,7 @@ export default mixins(
         'v-card--hover': this.hover,
         'v-card--link': this.isClickable,
         'v-card--loading': this.loading,
-        'v-card--disabled': this.loading || this.disabled,
-        'v-card--outlined': this.outlined,
+        'v-card--disabled': this.disabled,
         'v-card--raised': this.raised,
         ...VSheet.options.computed.classes.call(this),
       }
@@ -71,6 +69,7 @@ export default mixins(
 
       return this.$createElement('div', {
         staticClass: 'v-card__progress',
+        key: 'progress',
       }, [render])
     },
   },

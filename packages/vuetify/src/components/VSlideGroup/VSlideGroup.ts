@@ -8,6 +8,9 @@ import { VFadeTransition } from '../transitions'
 // Extensions
 import { BaseItemGroup } from '../VItemGroup/VItemGroup'
 
+// Mixins
+import Mobile from '../../mixins/mobile'
+
 // Directives
 import Resize from '../../directives/resize'
 import Touch from '../../directives/touch'
@@ -38,10 +41,14 @@ interface options extends Vue {
 
 export const BaseSlideGroup = mixins<options &
 /* eslint-disable indent */
-  ExtractVue<typeof BaseItemGroup>
+  ExtractVue<[
+    typeof BaseItemGroup,
+    typeof Mobile,
+  ]>
 /* eslint-enable indent */
 >(
-  BaseItemGroup
+  BaseItemGroup,
+  Mobile,
   /* @vue/component */
 ).extend({
   name: 'base-slide-group',
@@ -59,21 +66,26 @@ export const BaseSlideGroup = mixins<options &
     centerActive: Boolean,
     nextIcon: {
       type: String,
-      default: '$vuetify.icons.next',
-    },
-    mobileBreakPoint: {
-      type: [Number, String],
-      default: 1264,
-      validator: (v: any) => !isNaN(parseInt(v)),
+      default: '$next',
     },
     prevIcon: {
       type: String,
-      default: '$vuetify.icons.prev',
+      default: '$prev',
     },
-    showArrows: Boolean,
+    showArrows: {
+      type: [Boolean, String],
+      validator: v => (
+        typeof v === 'boolean' || [
+          'always',
+          'desktop',
+          'mobile',
+        ].includes(v)
+      ),
+    },
   },
 
   data: () => ({
+    internalItemsLength: 0,
     isOverflowing: false,
     resizeTimeout: 0,
     startX: 0,
@@ -95,13 +107,36 @@ export const BaseSlideGroup = mixins<options &
       return {
         ...BaseItemGroup.options.computed.classes.call(this),
         'v-slide-group': true,
+        'v-slide-group--has-affixes': this.hasAffixes,
+        'v-slide-group--is-overflowing': this.isOverflowing,
       }
     },
     hasAffixes (): Boolean {
-      return (
-        (this.showArrows || !this.isMobile) &&
-        this.isOverflowing
-      )
+      switch (this.showArrows) {
+        // Always show arrows on desktop & mobile
+        case 'always': return true
+
+        // Always show arrows on desktop
+        case 'desktop': return !this.isMobile
+
+        // Show arrows on mobile when overflowing.
+        // This matches the default 2.2 behavior
+        case true: return this.isOverflowing
+
+        // Always show on mobile
+        case 'mobile': return (
+          this.isMobile ||
+          this.isOverflowing
+        )
+
+        // https://material.io/components/tabs#scrollable-tabs
+        // Always show arrows when
+        // overflowed on desktop
+        default: return (
+          !this.isMobile &&
+          this.isOverflowing
+        )
+      }
     },
     hasNext (): boolean {
       if (!this.hasAffixes) return false
@@ -113,9 +148,6 @@ export const BaseSlideGroup = mixins<options &
     },
     hasPrev (): boolean {
       return this.hasAffixes && this.scrollOffset !== 0
-    },
-    isMobile (): boolean {
-      return this.$vuetify.breakpoint.width < this.mobileBreakPoint
     },
   },
 
@@ -130,10 +162,18 @@ export const BaseSlideGroup = mixins<options &
     },
   },
 
-  methods: {
-    genNext (): VNode | null {
-      if (!this.hasAffixes) return null
+  beforeUpdate () {
+    this.internalItemsLength = (this.$children || []).length
+  },
 
+  updated () {
+    if (this.internalItemsLength === (this.$children || []).length) return
+    this.setWidths()
+  },
+
+  methods: {
+    // Always generate next for scrollable hint
+    genNext (): VNode | null {
       const slot = this.$scopedSlots.next
         ? this.$scopedSlots.next({})
         : this.$slots.next || this.__cachedNext
@@ -187,9 +227,8 @@ export const BaseSlideGroup = mixins<options &
         },
       }, (this as any)[`${icon}Icon`])
     },
+    // Always generate prev for scrollable hint
     genPrev (): VNode | null {
-      if (!this.hasAffixes) return null
-
       const slot = this.$scopedSlots.prev
         ? this.$scopedSlots.prev({})
         : this.$slots.prev || this.__cachedPrev
@@ -257,11 +296,20 @@ export const BaseSlideGroup = mixins<options &
       content.style.setProperty('transition', null)
       content.style.setProperty('willChange', null)
 
-      /* istanbul ignore else */
-      if (this.scrollOffset < 0 || !this.isOverflowing) {
-        this.scrollOffset = 0
-      } else if (this.scrollOffset >= maxScrollOffset) {
-        this.scrollOffset = maxScrollOffset
+      if (this.$vuetify.rtl) {
+        /* istanbul ignore else */
+        if (this.scrollOffset > 0 || !this.isOverflowing) {
+          this.scrollOffset = 0
+        } else if (this.scrollOffset <= -maxScrollOffset) {
+          this.scrollOffset = -maxScrollOffset
+        }
+      } else {
+        /* istanbul ignore else */
+        if (this.scrollOffset < 0 || !this.isOverflowing) {
+          this.scrollOffset = 0
+        } else if (this.scrollOffset >= maxScrollOffset) {
+          this.scrollOffset = maxScrollOffset
+        }
       }
     },
     overflowCheck (e: TouchEvent, fn: (e: TouchEvent) => void) {
@@ -307,9 +355,9 @@ export const BaseSlideGroup = mixins<options &
       const itemOffset = clientWidth + offsetLeft
       const additionalOffset = clientWidth * 0.4
 
-      if (offsetLeft < currentScrollOffset) {
+      if (offsetLeft <= currentScrollOffset) {
         currentScrollOffset = Math.max(offsetLeft - additionalOffset, 0)
-      } else if (totalWidth < itemOffset) {
+      } else if (totalWidth <= itemOffset) {
         currentScrollOffset = Math.min(currentScrollOffset - (totalWidth - itemOffset - additionalOffset), widths.content - widths.wrapper)
       }
 

@@ -88,10 +88,9 @@ export default mixins(Returnable, Themeable).extend({
         staticClass: 'v-small-dialog__content',
         on: {
           keydown: (e: KeyboardEvent) => {
-            const input = (this.$refs.content as Element).querySelector('input')
             e.keyCode === keyCodes.esc && this.cancel()
-            if (e.keyCode === keyCodes.enter && input) {
-              this.save(input.value)
+            if (e.keyCode === keyCodes.enter) {
+              this.save(this.returnValue)
               this.$emit('save')
             }
           },
@@ -122,10 +121,14 @@ export default mixins(Returnable, Themeable).extend({
       },
       scopedSlots: {
         activator: ({ on }) => {
-          return h('span', {
+          return h('div', {
             staticClass: 'v-small-dialog__activator',
             on,
-          }, this.$slots.default)
+          }, [
+            h('span', {
+              staticClass: 'v-small-dialog__activator__content',
+            }, this.$slots.default),
+          ])
         },
       },
     }, [

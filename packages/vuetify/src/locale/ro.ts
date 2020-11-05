@@ -1,17 +1,21 @@
 export default {
+  badge: 'Insignă',
   close: 'Close',
   dataIterator: {
-    pageText: '{0}-{1} din {2}',
     noResultsText: 'Nu au fost găsite înregistrări care să se potrivească',
     loadingText: 'Loading item...',
   },
   dataTable: {
     itemsPerPageText: 'Rânduri pe pagină:',
     ariaLabel: {
-      sortDescending: ': Sorted descending. Activate to remove sorting.',
-      sortAscending: ': Sorted ascending. Activate to sort descending.',
-      sortNone: ': Not sorted. Activate to sort ascending.',
+      sortDescending: 'Sorted descending.',
+      sortAscending: 'Sorted ascending.',
+      sortNone: 'Not sorted.',
+      activateNone: 'Activate to remove sorting.',
+      activateDescending: 'Activate to sort descending.',
+      activateAscending: 'Activate to sort ascending.',
     },
+    sortBy: 'Sort by',
   },
   dataFooter: {
     itemsPerPageText: 'Articole pe pagină:',
@@ -20,14 +24,22 @@ export default {
     prevPage: 'Pagina anterioară',
     firstPage: 'Pagina prima',
     lastPage: 'Pagina ultima',
+    pageText: '{0}-{1} din {2}',
   },
   datePicker: {
     itemsSelected: '{0} selectate',
+    nextMonthAriaLabel: 'Luna viitoare',
+    nextYearAriaLabel: 'Anul urmator',
+    prevMonthAriaLabel: 'Luna trecută',
+    prevYearAriaLabel: 'Anul precedent',
   },
   noDataText: 'Nu există date disponibile',
   carousel: {
     prev: 'Anterior vizual',
     next: 'Următorul vizual',
+    ariaLabel: {
+      delimiter: 'Carousel slide {0} of {1}',
+    },
   },
   calendar: {
     moreEvents: '{0} mai mult',
@@ -35,5 +47,18 @@ export default {
   fileInput: {
     counter: '{0} files',
     counterSize: '{0} files ({1} in total)',
+  },
+  timePicker: {
+    am: 'AM',
+    pm: 'PM',
+  },
+  pagination: {
+    ariaLabel: {
+      wrapper: 'Navigare prin paginare',
+      next: 'Pagina următoare',
+      previous: 'Pagina anterioară',
+      page: 'Mergi la pagina {0}',
+      currentPage: 'Pagina curentă, pagina {0}',
+    },
   },
 }

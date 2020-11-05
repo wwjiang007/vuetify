@@ -1,63 +1,57 @@
 <template>
-  <v-app>
+  <v-fade-transition appear>
     <router-view />
-
-    <core-toolbar v-if="hasToolbar" />
-  </v-app>
+  </v-fade-transition>
 </template>
 
 <script>
-  // Mixins
-  import Meta from '@/mixins/meta'
-
   // Utilities
-  import { waitForReadystate } from '@/util/helpers'
-  import { mapState } from 'vuex'
+  import { call, get, sync } from 'vuex-pathify'
+  import { genAppMetaInfo } from '@/util/metadata'
+  import { wait, waitForReadystate } from '@/util/helpers'
 
-  import languages from '@/data/i18n/languages.json'
-
-  const fallbackLocale = languages.find(lang => lang.fallback === true).locale
+  // Data
+  import metadata from '@/data/metadata'
 
   export default {
-    mixins: [Meta],
+    name: 'App',
 
-    data: () => ({
-      availableLocales: languages.map(lang => lang.alternate || lang.locale),
-      languages,
-    }),
+    metaInfo () {
+      const suffix = this.name !== 'Home' ? ' — Vuetify' : ''
 
-    computed: {
-      ...mapState('app', ['isLoading']),
-      ...mapState('route', ['hash', 'name']),
-      languageIsValid () {
-        return this.availableLocales.includes(this.$route.params.lang)
-      },
-      hasToolbar () {
-        return this.languageIsValid && this.name !== 'Layouts'
-      },
+      return {
+        ...genAppMetaInfo(metadata),
+        titleTemplate: chunk => `${chunk}${suffix}`,
+      }
     },
 
-    created () {
-      if (!this.languageIsValid) this.$router.push(`/${fallbackLocale}`)
+    computed: {
+      ...get('route', [
+        'hash',
+        'name',
+      ]),
+      scrolling: sync('app/scrolling'),
     },
 
     async mounted () {
+      await waitForReadystate()
+      await this.init()
+
       if (!this.hash) return
 
-      await this.$nextTick()
-      await waitForReadystate()
+      await wait(500)
 
-      this.$vuetify.goTo(this.hash)
+      this.scrolling = true
+
+      try {
+        await this.$vuetify.goTo(this.hash)
+      } catch (e) {
+        console.log(e)
+      }
+
+      this.scrolling = false
     },
+
+    methods: { init: call('app/init') },
   }
 </script>
-
-<style>
-  .text-decoration-none {
-    text-decoration: none;
-  }
-
-  .wf-loading .material-icons {
-    display: none;
-  }
-</style>

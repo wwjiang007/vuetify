@@ -11,22 +11,4 @@ module.exports = {
       },
     ],
   },
-  'v-expansion-panel-header': {
-    slots: [
-      {
-        name: 'actions',
-        props: undefined,
-      },
-      {
-        name: 'icon',
-        props: undefined,
-      },
-    ],
-    events: [
-      {
-        name: 'click',
-        value: 'MouseEvent',
-      },
-    ],
-  },
 }

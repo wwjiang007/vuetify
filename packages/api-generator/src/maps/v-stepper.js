@@ -1,17 +1,15 @@
 module.exports = {
   'v-stepper': {
-    events: [
+    slots: [
       {
-        name: 'input',
-        value: 'number',
+        name: 'default',
+        props: undefined,
       },
     ],
-  },
-  'v-stepper-step': {
     events: [
       {
-        name: 'click',
-        value: 'MouseEvent',
+        name: 'change',
+        value: 'number',
       },
     ],
   },

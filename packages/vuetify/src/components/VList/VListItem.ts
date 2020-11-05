@@ -19,7 +19,7 @@ import { removed } from '../../util/console'
 // Types
 import mixins from '../../util/mixins'
 import { VNode } from 'vue'
-import { PropValidator } from 'vue/types/options'
+import { PropType, PropValidator } from 'vue/types/options'
 
 const baseMixins = mixins(
   Colorable,
@@ -45,8 +45,6 @@ export default baseMixins.extend<options>().extend({
     Ripple,
   },
 
-  inheritAttrs: false,
-
   inject: {
     isInGroup: {
       default: false,
@@ -62,6 +60,8 @@ export default baseMixins.extend<options>().extend({
     },
   },
 
+  inheritAttrs: false,
+
   props: {
     activeClass: {
       type: String,
@@ -74,13 +74,16 @@ export default baseMixins.extend<options>().extend({
     dense: Boolean,
     inactive: Boolean,
     link: Boolean,
+    selectable: {
+      type: Boolean,
+    },
     tag: {
       type: String,
       default: 'div',
     },
     threeLine: Boolean,
     twoLine: Boolean,
-    value: null as any as PropValidator<any>,
+    value: null as any as PropType<any>,
   },
 
   data: () => ({
@@ -95,6 +98,7 @@ export default baseMixins.extend<options>().extend({
         'v-list-item--dense': this.dense,
         'v-list-item--disabled': this.disabled,
         'v-list-item--link': this.isClickable && !this.inactive,
+        'v-list-item--selectable': this.selectable,
         'v-list-item--three-line': this.threeLine,
         'v-list-item--two-line': this.twoLine,
         ...this.themeClasses,
@@ -139,7 +143,8 @@ export default baseMixins.extend<options>().extend({
         attrs['aria-selected'] = String(this.isActive)
       } else if (this.isInMenu) {
         attrs.role = this.isClickable ? 'menuitem' : undefined
-      } else if (this.isInList && !this.isLink) {
+        attrs.id = attrs.id || `list-item-${this._uid}`
+      } else if (this.isInList) {
         attrs.role = 'listitem'
       }
 
@@ -154,9 +159,8 @@ export default baseMixins.extend<options>().extend({
       ...data.attrs,
       ...this.genAttrs(),
     }
-    data.on = {
-      ...data.on,
-      click: this.click,
+    data[this.to ? 'nativeOn' : 'on'] = {
+      ...data[this.to ? 'nativeOn' : 'on'],
       keydown: (e: KeyboardEvent) => {
         /* istanbul ignore else */
         if (e.keyCode === keyCodes.enter) this.click(e)
@@ -165,14 +169,18 @@ export default baseMixins.extend<options>().extend({
       },
     }
 
+    if (this.inactive) tag = 'div'
+    if (this.inactive && this.to) {
+      data.on = data.nativeOn
+      delete data.nativeOn
+    }
+
     const children = this.$scopedSlots.default
       ? this.$scopedSlots.default({
         active: this.isActive,
         toggle: this.toggle,
       })
       : this.$slots.default
-
-    tag = this.inactive ? 'div' : tag
 
     return h(tag, this.setTextColor(this.color, data), children)
   },

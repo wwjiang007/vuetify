@@ -17,15 +17,15 @@ export default Selectable.extend({
     indeterminate: Boolean,
     indeterminateIcon: {
       type: String,
-      default: '$vuetify.icons.checkboxIndeterminate',
-    },
-    onIcon: {
-      type: String,
-      default: '$vuetify.icons.checkboxOn',
+      default: '$checkboxIndeterminate',
     },
     offIcon: {
       type: String,
-      default: '$vuetify.icons.checkboxOff',
+      default: '$checkboxOff',
+    },
+    onIcon: {
+      type: String,
+      default: '$checkboxOn',
     },
   },
 
@@ -57,17 +57,18 @@ export default Selectable.extend({
     // according to spec, should still show
     // a color when disabled and active
     validationState (): string | undefined {
-      if (this.disabled && !this.inputIndeterminate) return undefined
+      if (this.isDisabled && !this.inputIndeterminate) return undefined
       if (this.hasError && this.shouldValidate) return 'error'
       if (this.hasSuccess) return 'success'
-      if (this.hasColor) return this.computedColor
+      if (this.hasColor !== null) return this.computedColor
       return undefined
     },
   },
 
   watch: {
     indeterminate (val) {
-      this.inputIndeterminate = val
+      // https://github.com/vuetifyjs/vuetify/issues/8270
+      this.$nextTick(() => (this.inputIndeterminate = val))
     },
     inputIndeterminate (val) {
       this.$emit('update:indeterminate', val)
@@ -83,19 +84,20 @@ export default Selectable.extend({
       return this.$createElement('div', {
         staticClass: 'v-input--selection-controls__input',
       }, [
-        this.genInput('checkbox', {
-          ...this.$attrs,
-          'aria-checked': this.inputIndeterminate
-            ? 'mixed'
-            : this.isActive.toString(),
-        }),
-        this.genRipple(this.setTextColor(this.validationState)),
         this.$createElement(VIcon, this.setTextColor(this.validationState, {
           props: {
+            dense: this.dense,
             dark: this.dark,
             light: this.light,
           },
         }), this.computedIcon),
+        this.genInput('checkbox', {
+          ...this.attrs$,
+          'aria-checked': this.inputIndeterminate
+            ? 'mixed'
+            : this.isActive.toString(),
+        }),
+        this.genRipple(this.setTextColor(this.rippleState)),
       ])
     },
     genDefaultSlot () {

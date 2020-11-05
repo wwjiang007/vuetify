@@ -14,6 +14,7 @@ import {
   mount,
   Wrapper,
 } from '@vue/test-utils'
+import { wait } from '../../../../test'
 
 const tip = '[Vuetify] The v-stepper-content component must be used inside a v-stepper'
 
@@ -28,6 +29,11 @@ describe('VStepperContent.ts', () => {
     mountFunction = (options = {}) => {
       return mount(VStepperContent, {
         localVue,
+        mocks: {
+          $vuetify: {
+            rtl: false,
+          },
+        },
         ...options,
       })
     }
@@ -70,6 +76,28 @@ describe('VStepperContent.ts', () => {
 
     wrapper.setData({ isReverse: true })
     expect(wrapper.vm.computedTransition).toBe(VTabReverseTransition)
+  })
+
+  it('should use opposite of reverse transition in rtl', () => {
+    const wrapper = mountFunction({
+      mocks: {
+        $vuetify: {
+          rtl: true,
+        },
+      },
+      propsData: { step: 1 },
+      provide: {
+        isVertical: false,
+        stepper: {
+          register: () => {},
+          unregister: () => {},
+        },
+      },
+    })
+    expect(wrapper.vm.computedTransition).toBe(VTabReverseTransition)
+
+    wrapper.setData({ isReverse: true })
+    expect(wrapper.vm.computedTransition).toBe(VTabTransition)
   })
 
   it('should accept a custom height', async () => {
@@ -179,14 +207,14 @@ describe('VStepperContent.ts', () => {
 
     expect(wrapper.vm.height).toBe(0)
 
-    await new Promise(resolve => setTimeout(resolve, 450))
+    await wait(450)
 
     expect(wrapper.vm.height).toBe('auto')
 
     wrapper.setData({ isActive: false })
     await wrapper.vm.$nextTick()
 
-    await new Promise(resolve => setTimeout(resolve, 10))
+    await wait(10)
 
     expect(wrapper.vm.height).toBe(0)
   })
@@ -215,7 +243,7 @@ describe('VStepperContent.ts', () => {
     wrapper.setData({ isActive: false })
     await wrapper.vm.$nextTick()
 
-    await new Promise(resolve => setTimeout(resolve, 450))
+    await wait(450)
 
     expect(wrapper.vm.height).toBe(0)
   })

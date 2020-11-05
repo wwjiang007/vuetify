@@ -14,6 +14,9 @@ Vue.prototype.$vuetify = {
       prev: 'mdi-chevron-left',
     },
   },
+  lang: {
+    t: str => str,
+  },
 }
 
 describe('VPagination.ts', () => {
@@ -23,7 +26,16 @@ describe('VPagination.ts', () => {
     jest.useFakeTimers()
 
     mountFunction = (options?: MountOptions<Instance>) => {
-      return mount(VPagination, options)
+      return mount(VPagination, {
+        mocks: {
+          $vuetify: {
+            lang: {
+              t: str => str,
+            },
+          },
+        },
+        ...options,
+      })
     }
   })
 
@@ -242,5 +254,43 @@ describe('VPagination.ts', () => {
     wrapper.setData({ maxButtons: 12 })
 
     expect(wrapper.vm.items).toHaveLength(10)
+  })
+
+  it('should never show more than the number of total visible buttons', () => {
+    const wrapper = mountFunction({
+      data: () => ({
+        maxButtons: 0,
+      }),
+
+      propsData: {
+        length: 5,
+        totalVisible: undefined,
+      },
+    })
+
+    expect(wrapper.vm.items).toHaveLength(5)
+
+    wrapper.setProps({ length: 40 })
+
+    wrapper.setData({ maxButtons: 0 })
+    wrapper.setProps({ totalVisible: 10 })
+    expect(wrapper.vm.items).toHaveLength(10)
+
+    wrapper.setData({ maxButtons: 11 })
+    wrapper.setProps({ totalVisible: undefined })
+    expect(wrapper.vm.items).toHaveLength(11)
+
+    wrapper.setData({ maxButtons: 12 })
+    wrapper.setProps({ totalVisible: 13 })
+    expect(wrapper.vm.items).toHaveLength(12)
+  })
+
+  it('should return length when maxButtons is less than 1', () => {
+    const wrapper = mountFunction({
+      data: () => ({ maxButtons: -3 }),
+      propsData: { length: 4 },
+    })
+
+    expect(wrapper.vm.items).toEqual([1, 2, 3, 4])
   })
 })

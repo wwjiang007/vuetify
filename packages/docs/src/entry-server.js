@@ -1,11 +1,13 @@
+// Imports
 import { createApp } from './main'
 
+const path = require('path')
+const resolve = file => path.resolve(__dirname, file)
+
 // ENV Variables
-require('dotenv').config()
+require('dotenv').config({ path: resolve('../.env.local') })
 
 global.fetch = require('node-fetch')
-
-const isDev = process.env.NODE_ENV !== 'production'
 
 // This exported function will be called by `bundleRenderer`.
 // This is where we perform data-prefetching to determine the
@@ -15,12 +17,21 @@ const isDev = process.env.NODE_ENV !== 'production'
 export default context => {
   /* eslint-disable-next-line no-async-promise-executor */
   return new Promise(async (resolve, reject) => {
-    const s = isDev && Date.now()
-    const {
-      app,
-      router,
-      store,
-    } = await createApp(undefined, context)
+    let app
+    let router
+    let store
+
+    try {
+      const res = await createApp(undefined, context)
+
+      app = res.app
+      router = res.router
+      store = res.store
+    } catch (e) {
+      console.log('error in server try')
+
+      reject(e)
+    }
 
     // set router's location
     router.push(context.url)
@@ -33,17 +44,19 @@ export default context => {
       // A preFetch hook dispatches a store action and returns a Promise,
       // which is resolved when the action is complete and store state has been
       // updated.
-      Promise.all([
-        ...matchedComponents.map(component => {
-          if (component.asyncData) {
-            return component.asyncData({
-              store,
+      Promise.all(
+        matchedComponents.map(async c => {
+          try {
+            const asyncData = c._Ctor[0].options.asyncData
+            await asyncData({
               route: router.currentRoute,
+              store,
             })
+          } catch (e) {
+            return Promise.resolve(e)
           }
         }),
-      ]).then(() => {
-        isDev && console.log(`data pre-fetch: ${Date.now() - s}ms`)
+      ).then(() => {
         // After all preFetch hooks are resolved, our store is now
         // filled with the state needed to render the app.
         // Expose the state on the render context, and let the request handler
@@ -52,7 +65,14 @@ export default context => {
         // the initial data fetching on the client.
         context.state = store.state
 
+        // Inject vue-meta into template
+        context.meta = app.$meta()
+
         resolve(app)
+      }).catch(e => {
+        console.log('missing route break server')
+
+        reject(e)
       })
     }, reject)
   })

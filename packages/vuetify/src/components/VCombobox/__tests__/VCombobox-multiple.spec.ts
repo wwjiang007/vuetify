@@ -17,7 +17,8 @@ describe('VCombobox.ts', () => {
 
     mountFunction = (options = {}) => {
       return mount(VCombobox, {
-        ...options,
+        // https://github.com/vuejs/vue-test-utils/issues/1130
+        sync: false,
         mocks: {
           $vuetify: {
             lang: {
@@ -28,6 +29,7 @@ describe('VCombobox.ts', () => {
             },
           },
         },
+        ...options,
       })
     }
   })
@@ -337,5 +339,71 @@ describe('VCombobox.ts', () => {
 
     expect(change).toHaveBeenCalledWith(['foobar'])
     expect(internal).toHaveBeenCalledWith(['foobar'], ['foo'])
+  })
+
+  it('should paste as item if source of pasted text is item in another v-combobox/v-autocomplete', async () => {
+    const { wrapper, change } = createMultipleCombobox({
+      items: ['aaa', 'bbb'],
+    })
+
+    const input = wrapper.find('input')
+    const getData = jest.fn(mimeType => 'ccc')
+    const event = {
+      clipboardData: {
+        getData,
+      },
+    }
+
+    input.trigger('focus')
+    input.trigger('paste', event)
+
+    expect(getData).toHaveBeenCalledTimes(1)
+    expect(getData).toHaveBeenCalledWith('text/vnd.vuetify.autocomplete.item+plain')
+    expect(change).toHaveBeenCalledWith(['ccc'])
+  })
+
+  it('should paste as text if source of pasted text is not item in another v-combobox/v-autocomplete', async () => {
+    const { wrapper, change } = createMultipleCombobox({
+      items: ['aaa', 'bbb'],
+    })
+
+    const input = wrapper.find('input')
+    const getData = jest.fn(mimeType => mimeType === 'text/plain' ? 'ccc' : '')
+    const event = {
+      clipboardData: {
+        getData,
+      },
+    }
+
+    input.trigger('focus')
+    input.trigger('paste', event)
+
+    expect(change).not.toHaveBeenCalled()
+    // expect(input.element.value).toBe('ccc')  // can be checked only in browser environment
+  })
+
+  it('should not add search to list when selecting items with keyboard', async () => {
+    const { wrapper, change } = createMultipleCombobox({
+      chips: true,
+      multiple: true,
+      items: ['aaa', 'bbb'],
+    })
+
+    const input = wrapper.find('input')
+    const element = input.element as HTMLInputElement
+
+    input.trigger('focus')
+    element.value = 'a'
+    input.trigger('input')
+    input.trigger('keydown.down')
+
+    await wrapper.vm.$nextTick()
+
+    input.trigger('keydown.enter')
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.internalSearch).toBe('a')
+    expect(change).toHaveBeenCalledWith(['aaa'])
   })
 })

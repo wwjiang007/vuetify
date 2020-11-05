@@ -1,39 +1,64 @@
 export default {
-  close: 'Close',
+  badge: 'Lencana',
+  close: 'Tutup',
   dataIterator: {
-    pageText: '{0}-{1} dari {2}',
     noResultsText: 'Tidak ditemukan catatan yang cocok',
-    loadingText: 'Loading item...',
+    loadingText: 'Memuat data...',
   },
   dataTable: {
-    itemsPerPageText: 'Baris setiap halaman:',
+    itemsPerPageText: 'Baris per halaman:',
     ariaLabel: {
-      sortDescending: ': Sorted descending. Activate to remove sorting.',
-      sortAscending: ': Sorted ascending. Activate to sort descending.',
-      sortNone: ': Not sorted. Activate to sort ascending.',
+      sortDescending: 'Diurutkan kebawah.',
+      sortAscending: 'Diurutkan keatas.',
+      sortNone: 'Tidak diurutkan.',
+      activateNone: 'Aktifkan untuk menghapus penyortiran.',
+      activateDescending: 'Aktifkan untuk mengurutkan kebawah.',
+      activateAscending: 'Aktifkan untuk mengurutkan keatas.',
     },
+    sortBy: 'Urutkan berdasar',
   },
   dataFooter: {
-    itemsPerPageText: 'Item setiap halaman:',
+    itemsPerPageText: 'Item per halaman:',
     itemsPerPageAll: 'Semua',
     nextPage: 'Halaman selanjutnya',
     prevPage: 'Halaman sebelumnya',
     firstPage: 'Halaman pertama',
     lastPage: 'Halaman terakhir',
+    pageText: '{0}-{1} dari {2}',
   },
   datePicker: {
     itemsSelected: '{0} dipilih',
+    nextMonthAriaLabel: 'Bulan depan',
+    nextYearAriaLabel: 'Tahun depan',
+    prevMonthAriaLabel: 'Bulan sebelumnya',
+    prevYearAriaLabel: 'Tahun sebelumnya',
   },
   noDataText: 'Tidak ada data tersedia',
   carousel: {
     prev: 'Visual sebelumnya',
     next: 'Visual selanjutnya',
+    ariaLabel: {
+      delimiter: 'Carousel slide {0} of {1}',
+    },
   },
   calendar: {
     moreEvents: '{0} lagi',
   },
   fileInput: {
-    counter: '{0} files',
-    counterSize: '{0} files ({1} in total)',
+    counter: '{0} berkas',
+    counterSize: '{0} berkas (dari total {1})',
+  },
+  timePicker: {
+    am: 'AM',
+    pm: 'PM',
+  },
+  pagination: {
+    ariaLabel: {
+      wrapper: 'Navigasi Pagination',
+      next: 'Halaman selanjutnya',
+      previous: 'Halaman sebelumnya',
+      page: 'Buka halaman {0}',
+      currentPage: 'Halaman Saat Ini, Halaman {0}',
+    },
   },
 }

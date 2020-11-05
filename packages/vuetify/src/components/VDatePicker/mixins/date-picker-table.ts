@@ -1,7 +1,7 @@
 import '../VDatePickerTable.sass'
 
 // Directives
-import Touch, { TouchWrapper } from '../../../directives/touch'
+import Touch from '../../../directives/touch'
 
 // Mixins
 import Colorable from '../../../mixins/colorable'
@@ -9,14 +9,26 @@ import Localable from '../../../mixins/localable'
 import Themeable from '../../../mixins/themeable'
 
 // Utils
-import isDateAllowed, { AllowedDateFunction } from '../util/isDateAllowed'
+import { createItemTypeNativeListeners } from '../util'
+import isDateAllowed from '../util/isDateAllowed'
+import { mergeListeners } from '../../../util/mergeData'
 import mixins from '../../../util/mixins'
+import { throttle } from '../../../util/helpers'
 
 // Types
-import { VNodeChildren } from 'vue'
+import {
+  PropType,
+  VNodeChildren,
+} from 'vue'
 import { PropValidator } from 'vue/types/options'
-import { DatePickerFormatter } from '../util/createNativeLocaleFormatter'
-import { DateEvents, DateEventColors, DateEventColorValue } from '../VDatePicker'
+import {
+  DatePickerAllowedDatesFunction,
+  DatePickerEventColors,
+  DatePickerEventColorValue,
+  DatePickerEvents,
+  DatePickerFormatter,
+  TouchWrapper,
+} from 'vuetify/types'
 
 type CalculateTableDateFunction = (v: number) => string
 
@@ -29,31 +41,33 @@ export default mixins(
   directives: { Touch },
 
   props: {
-    allowedDates: Function as PropValidator<AllowedDateFunction | undefined>,
+    allowedDates: Function as PropType<DatePickerAllowedDatesFunction | undefined>,
     current: String,
     disabled: Boolean,
-    format: Function as PropValidator<DatePickerFormatter | undefined>,
+    format: Function as PropType<DatePickerFormatter | undefined>,
     events: {
       type: [Array, Function, Object],
       default: () => null,
-    } as any as PropValidator<DateEvents>,
+    } as PropValidator<DatePickerEvents | null>,
     eventColor: {
       type: [Array, Function, Object, String],
       default: () => 'warning',
-    } as any as PropValidator<DateEventColors>,
+    } as PropValidator<DatePickerEventColors>,
     min: String,
     max: String,
+    range: Boolean,
     readonly: Boolean,
     scrollable: Boolean,
     tableDate: {
       type: String,
       required: true,
     },
-    value: [String, Array],
+    value: [String, Array] as PropType<string | string[]>,
   },
 
   data: () => ({
     isReversing: false,
+    wheelThrottle: null as any,
   }),
 
   computed: {
@@ -74,10 +88,15 @@ export default mixins(
     },
   },
 
+  mounted () {
+    this.wheelThrottle = throttle(this.wheel, 250)
+  },
+
   methods: {
     genButtonClasses (isAllowed: boolean, isFloating: boolean, isSelected: boolean, isCurrent: boolean) {
       return {
         'v-size--default': !isFloating,
+        'v-date-picker-table__current': isCurrent,
         'v-btn--active': isSelected,
         'v-btn--flat': !isAllowed || this.disabled,
         'v-btn--text': isSelected === isCurrent,
@@ -90,17 +109,15 @@ export default mixins(
     genButtonEvents (value: string, isAllowed: boolean, mouseEventType: string) {
       if (this.disabled) return undefined
 
-      return {
+      return mergeListeners({
         click: () => {
-          isAllowed && !this.readonly && this.$emit('input', value)
-          this.$emit(`click:${mouseEventType}`, value)
+          if (isAllowed && !this.readonly) this.$emit('input', value)
         },
-        dblclick: () => this.$emit(`dblclick:${mouseEventType}`, value),
-      }
+      }, createItemTypeNativeListeners(this, `:${mouseEventType}`, value))
     },
     genButton (value: string, isFloating: boolean, mouseEventType: string, formatter: DatePickerFormatter) {
       const isAllowed = isDateAllowed(value, this.min, this.max, this.allowedDates)
-      const isSelected = value === this.value || (Array.isArray(this.value) && this.value.indexOf(value) !== -1)
+      const isSelected = this.isSelected(value) && isAllowed
       const isCurrent = value === this.current
       const setColor = isSelected ? this.setBackgroundColor : this.setTextColor
       const color = (isSelected || isCurrent) && (this.color || 'accent')
@@ -124,7 +141,7 @@ export default mixins(
     },
     getEventColors (date: string) {
       const arrayize = (v: string | string[]) => Array.isArray(v) ? v : [v]
-      let eventData: boolean | DateEventColorValue
+      let eventData: boolean | DatePickerEventColorValue
       let eventColors: string[] = []
 
       if (Array.isArray(this.events)) {
@@ -161,7 +178,6 @@ export default mixins(
       }, eventColors.map(color => this.$createElement('div', this.setBackgroundColor(color)))) : null
     },
     wheel (e: WheelEvent, calculateTableDate: CalculateTableDateFunction) {
-      e.preventDefault()
       this.$emit('update:table-date', calculateTableDate(e.deltaY))
     },
     touch (value: number, calculateTableDate: CalculateTableDateFunction) {
@@ -187,10 +203,25 @@ export default mixins(
           ...this.themeClasses,
         },
         on: (!this.disabled && this.scrollable) ? {
-          wheel: (e: WheelEvent) => this.wheel(e, calculateTableDate),
+          wheel: (e: WheelEvent) => {
+            e.preventDefault()
+            this.wheelThrottle(e, calculateTableDate)
+          },
         } : undefined,
         directives: [touchDirective],
       }, [transition])
+    },
+    isSelected (value: string): boolean {
+      if (Array.isArray(this.value)) {
+        if (this.range && this.value.length === 2) {
+          const [from, to] = [...this.value].sort()
+          return from <= value && value <= to
+        } else {
+          return this.value.indexOf(value) !== -1
+        }
+      }
+
+      return value === this.value
     },
   },
 })

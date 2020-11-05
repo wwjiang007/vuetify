@@ -1,19 +1,9 @@
 import Vue from 'vue'
 import App from './App'
-import Vuetify from 'vuetify'
-import * as locales from '../src/locale'
 import router from './router'
-import '@mdi/font/css/materialdesignicons.css'
+import vuetify from './vuetify'
 
 Vue.config.performance = true
-
-Vue.use(Vuetify)
-
-const vuetify = new Vuetify({
-  lang: {
-    locales,
-  },
-})
 
 const vm = new Vue({
   data: () => ({ isLoaded: document.readyState === 'complete' }),

@@ -6,10 +6,16 @@ import VSelect, { defaultMenuProps as VSelectMenuProps } from '../VSelect/VSelec
 import VTextField from '../VTextField/VTextField'
 
 // Utilities
-import { keyCodes } from '../../util/helpers'
+import mergeData from '../../util/mergeData'
+import {
+  getObjectValueByPath,
+  getPropertyFromItem,
+  keyCodes,
+} from '../../util/helpers'
 
 // Types
-import { PropType } from 'vue'
+import { PropType, VNode } from 'vue'
+import { PropValidator } from 'vue/types/options'
 
 const defaultMenuProps = {
   ...VSelectMenuProps,
@@ -36,7 +42,7 @@ export default VSelect.extend({
       default: (item: any, queryText: string, itemText: string) => {
         return itemText.toLocaleLowerCase().indexOf(queryText.toLocaleLowerCase()) > -1
       },
-    },
+    } as PropValidator<(item: any, queryText: string, itemText: string) => boolean>,
     hideNoData: Boolean,
     menuProps: {
       type: VSelect.options.props.menuProps.type,
@@ -44,8 +50,7 @@ export default VSelect.extend({
     },
     noFilter: Boolean,
     searchInput: {
-      type: String as PropType<string | undefined>,
-      default: undefined,
+      type: String as PropType<string | null>,
     },
   },
 
@@ -82,13 +87,18 @@ export default VSelect.extend({
     filteredItems (): object[] {
       if (!this.isSearching || this.noFilter || this.internalSearch == null) return this.allItems
 
-      return this.allItems.filter(item => this.filter(item, String(this.internalSearch), String(this.getText(item))))
+      return this.allItems.filter(item => {
+        const value = getPropertyFromItem(item, this.itemText)
+        const text = value != null ? String(value) : ''
+
+        return this.filter(item, String(this.internalSearch), text)
+      })
     },
     internalSearch: {
-      get (): string | undefined {
+      get (): string | null {
         return this.lazySearch
       },
-      set (val: any) {
+      set (val: any) { // TODO: this should be `string | null` but it breaks lots of other types
         this.lazySearch = val
 
         this.$emit('update:search-input', val)
@@ -156,16 +166,17 @@ export default VSelect.extend({
     internalValue: 'setSearch',
     isFocused (val) {
       if (val) {
-        this.$refs.input &&
-          this.$refs.input.select()
+        document.addEventListener('copy', this.onCopy)
+        this.$refs.input && this.$refs.input.select()
       } else {
+        document.removeEventListener('copy', this.onCopy)
         this.updateSelf()
       }
     },
     isMenuActive (val) {
       if (val || !this.hasSlot) return
 
-      this.lazySearch = undefined
+      this.lazySearch = null
     },
     items (val, oldVal) {
       // If we are focused, the menu
@@ -190,6 +201,10 @@ export default VSelect.extend({
 
   created () {
     this.setSearch()
+  },
+
+  destroyed () {
+    document.removeEventListener('copy', this.onCopy)
   },
 
   methods: {
@@ -223,67 +238,74 @@ export default VSelect.extend({
       // when search is dirty
       if (this.searchIsDirty) return
 
-      if (![
-        keyCodes.backspace,
-        keyCodes.left,
-        keyCodes.right,
-        keyCodes.delete,
-      ].includes(keyCode)) return
-
-      const index = this.selectedItems.length - 1
-
-      if (keyCode === keyCodes.left) {
+      if (this.multiple && keyCode === keyCodes.left) {
         if (this.selectedIndex === -1) {
-          this.selectedIndex = index
+          this.selectedIndex = this.selectedItems.length - 1
         } else {
           this.selectedIndex--
         }
-      } else if (keyCode === keyCodes.right) {
-        if (this.selectedIndex >= index) {
+      } else if (this.multiple && keyCode === keyCodes.right) {
+        if (this.selectedIndex >= this.selectedItems.length - 1) {
           this.selectedIndex = -1
         } else {
           this.selectedIndex++
         }
-      } else if (this.selectedIndex === -1) {
-        this.selectedIndex = index
+      } else if (keyCode === keyCodes.backspace || keyCode === keyCodes.delete) {
+        this.deleteCurrentItem()
+      }
+    },
+    deleteCurrentItem () {
+      const curIndex = this.selectedIndex
+      const curItem = this.selectedItems[curIndex]
+
+      // Do nothing if input or item is disabled
+      if (
+        !this.isInteractive ||
+        this.getDisabled(curItem)
+      ) return
+
+      const lastIndex = this.selectedItems.length - 1
+
+      // Select the last item if
+      // there is no selection
+      if (
+        this.selectedIndex === -1 &&
+        lastIndex !== 0
+      ) {
+        this.selectedIndex = lastIndex
+
         return
       }
 
-      const currentItem = this.selectedItems[this.selectedIndex]
+      const length = this.selectedItems.length
+      const nextIndex = curIndex !== length - 1
+        ? curIndex
+        : curIndex - 1
+      const nextItem = this.selectedItems[nextIndex]
 
-      if ([
-        keyCodes.backspace,
-        keyCodes.delete,
-      ].includes(keyCode) &&
-        !this.getDisabled(currentItem)
-      ) {
-        const newIndex = this.selectedIndex === index
-          ? this.selectedIndex - 1
-          : this.selectedItems[this.selectedIndex + 1]
-            ? this.selectedIndex
-            : -1
-
-        if (newIndex === -1) {
-          this.setValue(this.multiple ? [] : undefined)
-        } else {
-          this.selectItem(currentItem)
-        }
-
-        this.selectedIndex = newIndex
+      if (!nextItem) {
+        this.setValue(this.multiple ? [] : null)
+      } else {
+        this.selectItem(curItem)
       }
+
+      this.selectedIndex = nextIndex
     },
     clearableCallback () {
-      this.internalSearch = undefined
+      this.internalSearch = null
 
       VSelect.options.methods.clearableCallback.call(this)
     },
     genInput () {
       const input = VTextField.options.methods.genInput.call(this)
 
-      input.data = input.data || {}
-      input.data.attrs = input.data.attrs || {}
-      input.data.domProps = input.data.domProps || {}
-      input.data.domProps.value = this.internalSearch
+      input.data = mergeData(input.data!, {
+        attrs: {
+          'aria-activedescendant': getObjectValueByPath(this.$refs.menu, 'activeTile.id'),
+          autocomplete: getObjectValueByPath(input.data!, 'attrs.autocomplete', 'off'),
+        },
+        domProps: { value: this.internalSearch },
+      })
 
       return input
     },
@@ -294,19 +316,19 @@ export default VSelect.extend({
 
       return slot
     },
-    genSelections () {
+    genSelections (): VNode | never[] {
       return this.hasSlot || this.multiple
         ? VSelect.options.methods.genSelections.call(this)
         : []
     },
-    onClick () {
-      if (this.isDisabled) return
+    onClick (e: MouseEvent) {
+      if (!this.isInteractive) return
 
       this.selectedIndex > -1
         ? (this.selectedIndex = -1)
         : this.onFocus()
 
-      this.activateMenu()
+      if (!this.isAppendInner(e.target)) this.activateMenu()
     },
     onInput (e: Event) {
       if (
@@ -339,11 +361,18 @@ export default VSelect.extend({
       VSelect.options.methods.onTabDown.call(this, e)
       this.updateSelf()
     },
-    onUpDown () {
+    onUpDown (e: Event) {
+      // Prevent screen from scrolling
+      e.preventDefault()
+
       // For autocomplete / combobox, cycling
       // interfers with native up/down behavior
       // instead activate the menu
       this.activateMenu()
+    },
+    selectItem (item: object) {
+      VSelect.options.methods.selectItem.call(this, item)
+      this.setSearch()
     },
     setSelectedItems () {
       VSelect.options.methods.setSelectedItems.call(this)
@@ -383,8 +412,17 @@ export default VSelect.extend({
         this.setSearch()
       }
     },
-    hasItem (item: any) {
+    hasItem (item: any): boolean {
       return this.selectedValues.indexOf(this.getValue(item)) > -1
+    },
+    onCopy (event: ClipboardEvent) {
+      if (this.selectedIndex === -1) return
+
+      const currentItem = this.selectedItems[this.selectedIndex]
+      const currentItemText = this.getText(currentItem)
+      event.clipboardData?.setData('text/plain', currentItemText)
+      event.clipboardData?.setData('text/vnd.vuetify.autocomplete.item+plain', currentItemText)
+      event.preventDefault()
     },
   },
 })

@@ -30,7 +30,7 @@ describe('VWindow.ts', () => {
     }
   })
 
-  it('it should return the correct transition', async () => {
+  it('should return the correct transition', async () => {
     const wrapper = mountFunction()
     // Force booted
     wrapper.setData({ isBooted: true })
@@ -72,11 +72,11 @@ describe('VWindow.ts', () => {
 
     // Reverse explicit prop override
     wrapper.setProps({ reverse: false })
-    expect(wrapper.vm.internalReverse).toBeFalsy()
+    expect(wrapper.vm.internalReverse).toBeTruthy()
 
     // Reverse explicit prop override
     wrapper.setProps({ reverse: true })
-    expect(wrapper.vm.internalReverse).toBeTruthy()
+    expect(wrapper.vm.internalReverse).toBeFalsy()
 
     // Reverts back to local isReverse
     wrapper.setProps({ reverse: undefined })

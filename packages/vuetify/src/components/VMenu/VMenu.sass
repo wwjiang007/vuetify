@@ -1,24 +1,14 @@
-@import '../../styles/styles.sass'
+@import './_variables.scss'
 
 .v-menu
-  display: block
-  vertical-align: middle
+  display: none
 
-  &--inline
-    display: inline-block
-
-  &__activator
-    align-items: center
-    cursor: pointer
-    display: flex
-
-    *
-      cursor: pointer
+  &--attached
+    display: inline
 
   &__content
     position: absolute
     display: inline-block
-    border-radius: 2px
     max-width: 80%
     overflow-y: auto
     overflow-x: hidden
@@ -26,7 +16,8 @@
     // This is required for an issue on Chrome 65
     // that prevents scrolling after a menu is opened
     will-change: transform
-    +elevation(8)
+    +elevation($menu-content-elevation)
+    +radius($menu-content-border-radius)
 
     &--active
       pointer-events: none
@@ -54,7 +45,6 @@
         pointer-events: none
     &-enter-to
       .v-list-item
-        pointer-events: auto
         transition-delay: .1s
 
     &-leave-active,

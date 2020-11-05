@@ -151,24 +151,6 @@ describe('VRangeSlider.ts', () => {
     expect(wrapper.vm.internalValue).toEqual([5, 25])
   })
 
-  it('should return the proper styles', () => {
-    const wrapper = mountFunction()
-
-    let styles = wrapper.vm.trackFillStyles
-
-    expect(styles.left).toBe('0%')
-    expect(styles.right).toBe('auto')
-    expect(styles.width).toBe('0%')
-    wrapper.vm.$vuetify.rtl = true
-
-    styles = wrapper.vm.trackFillStyles
-    expect(styles.left).toBe('auto')
-    expect(styles.right).toBe('0%')
-    expect(styles.width).toBe('0%')
-
-    wrapper.vm.$vuetify.rtl = undefined
-  })
-
   it('should render a vertical slider', async () => {
     const wrapper = mountFunction({
       propsData: {
@@ -187,5 +169,45 @@ describe('VRangeSlider.ts', () => {
     })
 
     expect(wrapper.html()).toMatchSnapshot()
+  })
+  it('should not change to another handle', async () => {
+    const setInternalValue = jest.fn()
+    const mockParseMouseMoveResult = { value: 1, isInsideTrack: true }
+    const wrapper = mountFunction({
+      methods: { parseMouseMove: e => mockParseMouseMoveResult, setInternalValue },
+      propsData: {
+        min: 0,
+        max: 1,
+        value: [0, 1],
+      },
+    })
+    wrapper.setData({ activeThumb: 0 })
+    wrapper.vm.onMouseMove(null)
+
+    expect(wrapper.vm.activeThumb).toEqual(0)
+    expect(setInternalValue).toHaveBeenCalledWith(1)
+  })
+
+  // https://github.com/vuetifyjs/vuetify/issues/9818
+  it('should accept falsy values', () => {
+    [
+      [undefined, undefined],
+      [null, null],
+      [false, false],
+    ].forEach(value => {
+      const wrapper = mountFunction({
+        propsData: { value },
+      })
+
+      expect(wrapper.vm.internalValue).toEqual([0, 0])
+    })
+  })
+
+  // https://github.com/vuetifyjs/vuetify/issues/6843
+  it('should be uniq id', async () => {
+    const wrapper = mountFunction()
+    const [min, max] = wrapper.vm.genInput()
+
+    expect(min.data.attrs.id).not.toEqual(max.data.attrs.id)
   })
 })

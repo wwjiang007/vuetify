@@ -1,15 +1,33 @@
-import { Theme } from '../../src/services/theme'
+export interface Theme {
+  dark: boolean
+  disable: boolean
+  default: string | false
+  options: {
+    /** @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src#Unsafe_inline_script */
+    cspNonce?: string
+    customProperties?: boolean
+    minifyTheme?: ThemeMinifyTheme
+    themeCache?: VuetifyThemeCache
+    variations?: boolean
+  }
+  themes: {
+    dark: VuetifyThemeVariant
+    light: VuetifyThemeVariant
+  }
+  readonly currentTheme: Partial<VuetifyThemeVariant>
+}
 
-export interface VuetifyThemeOptions {
+export interface ThemeOptions {
   dark?: boolean
   disable?: boolean
   default?: string | false
   options?: {
     /** @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src#Unsafe_inline_script */
-    cspNonce?: string | null
+    cspNonce?: string
     customProperties?: boolean
-    minifyTheme?: ((css: string) => string) | null
+    minifyTheme?: ThemeMinifyTheme
     themeCache?: VuetifyThemeCache
+    variations?: boolean
   }
   themes?: {
     dark?: Partial<VuetifyThemeVariant>
@@ -18,7 +36,7 @@ export interface VuetifyThemeOptions {
 }
 
 export interface VuetifyThemes {
-  dark: VuetifyThemeVariant,
+  dark: VuetifyThemeVariant
   light: VuetifyThemeVariant
 }
 
@@ -59,4 +77,6 @@ export interface VuetifyParsedThemeItem {
   darken4: string
 }
 
-export type VuetifyThemeItem = VuetifyParsedThemeItem | string | number | undefined
+export type VuetifyThemeItem = Partial<VuetifyParsedThemeItem> | string | number | undefined
+
+export type ThemeMinifyTheme = ((css: string) => string) | null

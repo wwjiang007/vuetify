@@ -1,36 +1,18 @@
 // Helpers
-import { wrapInArray, sortItems, deepEqual, groupByProperty, searchItems } from '../../util/helpers'
-import Vue, { VNode, PropType } from 'vue'
+import { wrapInArray, sortItems, deepEqual, groupItems, searchItems, fillArray } from '../../util/helpers'
+import Vue, { VNode } from 'vue'
 
-export interface DataOptions {
-  page: number
-  itemsPerPage: number
-  sortBy: string[]
-  sortDesc: boolean[]
-  groupBy: string[]
-  groupDesc: boolean[]
-  multiSort: boolean
-  mustSort: boolean
-}
-
-export interface DataPagination {
-  page: number
-  itemsPerPage: number
-  pageStart: number
-  pageStop: number
-  pageCount: number
-  itemsLength: number
-}
-
-export interface DataProps {
-  items: any[]
-  pagination: DataPagination
-  options: DataOptions
-  updateOptions: (obj: any) => void
-  sort: (value: string) => void
-  group: (value: string) => void
-  groupedItems: Record<string, any[]> | null
-}
+// Types
+import {
+  DataOptions,
+  DataPagination,
+  DataScopeProps,
+  DataSortFunction,
+  DataGroupFunction,
+  DataSearchFunction,
+  ItemGroup,
+} from 'vuetify/types'
+import { PropValidator } from 'vue/types/options'
 
 export default Vue.extend({
   name: 'v-data',
@@ -39,25 +21,25 @@ export default Vue.extend({
 
   props: {
     items: {
-      type: Array as PropType<any[]>,
+      type: Array,
       default: () => [],
-    },
+    } as PropValidator<any[]>,
     options: {
       type: Object,
       default: () => ({}),
-    },
+    } as PropValidator<Partial<DataOptions>>,
     sortBy: {
-      type: [String, Array] as PropType<string | string[]>,
+      type: [String, Array],
       default: () => [],
-    },
+    } as PropValidator<string | string[]>,
     sortDesc: {
-      type: [Boolean, Array] as PropType<boolean | boolean[]>,
+      type: [Boolean, Array],
       default: () => [],
-    },
+    } as PropValidator<boolean | boolean[]>,
     customSort: {
-      type: Function as any as PropType<typeof sortItems>,
+      type: Function,
       default: sortItems,
-    },
+    } as PropValidator<DataSortFunction>,
     mustSort: Boolean,
     multiSort: Boolean,
     page: {
@@ -69,13 +51,17 @@ export default Vue.extend({
       default: 10,
     },
     groupBy: {
-      type: [String, Array] as PropType<string | string[]>,
+      type: [String, Array],
       default: () => [],
-    },
+    } as PropValidator<string | string[]>,
     groupDesc: {
-      type: [Boolean, Array] as PropType<boolean | boolean[]>,
+      type: [Boolean, Array],
       default: () => [],
-    },
+    } as PropValidator<boolean | boolean[]>,
+    customGroup: {
+      type: Function,
+      default: groupItems,
+    } as PropValidator<DataGroupFunction>,
     locale: {
       type: String,
       default: 'en-US',
@@ -85,9 +71,9 @@ export default Vue.extend({
     disableFiltering: Boolean,
     search: String,
     customFilter: {
-      type: Function as any as PropType<typeof searchItems>,
+      type: Function,
       default: searchItems,
-    },
+    } as PropValidator<DataSearchFunction>,
     serverItemsLength: {
       type: Number,
       default: -1,
@@ -95,17 +81,35 @@ export default Vue.extend({
   },
 
   data () {
+    let internalOptions: DataOptions = {
+      page: this.page,
+      itemsPerPage: this.itemsPerPage,
+      sortBy: wrapInArray(this.sortBy),
+      sortDesc: wrapInArray(this.sortDesc),
+      groupBy: wrapInArray(this.groupBy),
+      groupDesc: wrapInArray(this.groupDesc),
+      mustSort: this.mustSort,
+      multiSort: this.multiSort,
+    }
+
+    if (this.options) {
+      internalOptions = Object.assign(internalOptions, this.options)
+    }
+
+    const { sortBy, sortDesc, groupBy, groupDesc } = internalOptions
+    const sortDiff = sortBy.length - sortDesc.length
+    const groupDiff = groupBy.length - groupDesc.length
+
+    if (sortDiff > 0) {
+      internalOptions.sortDesc.push(...fillArray(sortDiff, false))
+    }
+
+    if (groupDiff > 0) {
+      internalOptions.groupDesc.push(...fillArray(groupDiff, false))
+    }
+
     return {
-      internalOptions: {
-        page: this.page,
-        itemsPerPage: this.itemsPerPage,
-        sortBy: wrapInArray(this.sortBy),
-        sortDesc: wrapInArray(this.sortDesc),
-        groupBy: wrapInArray(this.groupBy),
-        groupDesc: wrapInArray(this.groupDesc),
-        mustSort: this.mustSort,
-        multiSort: this.multiSort,
-      } as DataOptions,
+      internalOptions,
     }
   },
 
@@ -114,9 +118,9 @@ export default Vue.extend({
       return this.serverItemsLength >= 0 ? this.serverItemsLength : this.filteredItems.length
     },
     pageCount (): number {
-      return this.internalOptions.itemsPerPage === -1
+      return this.internalOptions.itemsPerPage <= 0
         ? 1
-        : Math.ceil(this.itemsLength / this.internalOptions.itemsPerPage) // TODO: can't use items.length here
+        : Math.ceil(this.itemsLength / this.internalOptions.itemsPerPage)
     },
     pageStart (): number {
       if (this.internalOptions.itemsPerPage === -1 || !this.items.length) return 0
@@ -164,11 +168,11 @@ export default Vue.extend({
 
       return items
     },
-    groupedItems (): Record<string, any[]> | null {
-      return this.isGrouped ? groupByProperty(this.computedItems, this.internalOptions.groupBy[0]) : null
+    groupedItems (): ItemGroup<any>[] | null {
+      return this.isGrouped ? this.groupItems(this.computedItems) : null
     },
-    scopedProps (): DataProps {
-      const props = {
+    scopedProps (): DataScopeProps {
+      return {
         sort: this.sort,
         sortArray: this.sortArray,
         group: this.group,
@@ -177,14 +181,16 @@ export default Vue.extend({
         updateOptions: this.updateOptions,
         pagination: this.pagination,
         groupedItems: this.groupedItems,
+        originalItemsLength: this.items.length,
       }
-
-      return props
+    },
+    computedOptions (): DataOptions {
+      return { ...this.options } as DataOptions
     },
   },
 
   watch: {
-    options: {
+    computedOptions: {
       handler (options: DataOptions, old: DataOptions) {
         if (deepEqual(options, old)) return
 
@@ -197,7 +203,6 @@ export default Vue.extend({
       handler (options: DataOptions, old: DataOptions) {
         if (deepEqual(options, old)) return
         this.$emit('update:options', options)
-        this.$emit('pagination', this.pagination)
       },
       deep: true,
       immediate: true,
@@ -262,6 +267,13 @@ export default Vue.extend({
       },
       immediate: true,
     },
+    pagination: {
+      handler (pagination: DataPagination, old: DataPagination) {
+        if (deepEqual(pagination, old)) return
+        this.$emit('pagination', this.pagination)
+      },
+      immediate: true,
+    },
   },
 
   methods: {
@@ -313,8 +325,8 @@ export default Vue.extend({
         this.internalOptions.sortBy,
         this.internalOptions.sortDesc,
         this.internalOptions.page,
-        this.mustSort,
-        this.multiSort
+        this.internalOptions.mustSort,
+        this.internalOptions.multiSort
       )
       this.updateOptions({ sortBy, sortDesc, page })
     },
@@ -330,18 +342,31 @@ export default Vue.extend({
       this.internalOptions = {
         ...this.internalOptions,
         ...options,
-        page: Math.max(1, Math.min(options.page || this.internalOptions.page, this.pageCount)),
+        page: this.serverItemsLength < 0
+          ? Math.max(1, Math.min(options.page || this.internalOptions.page, this.pageCount))
+          : options.page || this.internalOptions.page,
       }
     },
-    sortItems (items: any[]) {
-      const sortBy = this.internalOptions.groupBy.concat(this.internalOptions.sortBy)
-      const sortDesc = this.internalOptions.groupDesc.concat(this.internalOptions.sortDesc)
+    sortItems (items: any[]): any[] {
+      let sortBy = this.internalOptions.sortBy
+      let sortDesc = this.internalOptions.sortDesc
+
+      if (this.internalOptions.groupBy.length) {
+        sortBy = [...this.internalOptions.groupBy, ...sortBy]
+        sortDesc = [...this.internalOptions.groupDesc, ...sortDesc]
+      }
+
       return this.customSort(items, sortBy, sortDesc, this.locale)
     },
-    paginateItems (items: any[]) {
+    groupItems (items: any[]): ItemGroup<any>[] {
+      return this.customGroup(items, this.internalOptions.groupBy, this.internalOptions.groupDesc)
+    },
+    paginateItems (items: any[]): any[] {
       // Make sure we don't try to display non-existant page if items suddenly change
       // TODO: Could possibly move this to pageStart/pageStop?
-      if (items.length < this.pageStart) this.internalOptions.page = 1
+      if (this.serverItemsLength === -1 && items.length <= this.pageStart) {
+        this.internalOptions.page = Math.max(1, this.internalOptions.page - 1)
+      }
 
       return items.slice(this.pageStart, this.pageStop)
     },

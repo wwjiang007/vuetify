@@ -36,6 +36,57 @@ describe('Table Row', () => {
     expect(wrapper.html()).toMatchSnapshot()
   })
 
+  it('should render non-string values', () => {
+    const wrapper = mountFunction({
+      context: {
+        props: {
+          headers: [
+            { value: 'string' },
+            { value: 'number' },
+            { value: 'array' },
+            { value: 'boolean' },
+            { value: 'object' },
+            { value: 'undefined' },
+            { value: 'null' },
+          ],
+          item: {
+            string: 'string',
+            number: 12.34,
+            array: [1, 2],
+            boolean: false,
+            object: { foo: 'bar' },
+            null: null,
+          },
+        },
+      },
+    })
+
+    expect(wrapper.html()).toMatchSnapshot()
+  })
+
+  it('should render with cellClass', () => {
+    const wrapper = mountFunction({
+      context: {
+        props: {
+          headers: [
+            { text: 'Petrol', value: 'petrol', cellClass: 'a' },
+            { text: 'Diesel', value: 'diesel', cellClass: ['b', 'c'] },
+          ],
+          item: {
+            petrol: 0.68,
+            diesel: 0.65,
+          },
+        },
+      },
+    })
+
+    const tds = wrapper.findAll('td')
+    expect(tds.at(0).classes()).toContain('a')
+    expect(tds.at(1).classes()).toContain('b')
+    expect(tds.at(1).classes()).toContain('c')
+    expect(wrapper.html()).toMatchSnapshot()
+  })
+
   it.skip('should render with regular slots', () => {
     const wrapper = mountFunction({
       context: {

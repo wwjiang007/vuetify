@@ -28,20 +28,8 @@ export interface VColorPickerColor {
 export function fromHSVA (hsva: HSVA): VColorPickerColor {
   hsva = { ...hsva }
   const hexa = HSVAtoHex(hsva)
-  return {
-    alpha: hsva.a,
-    hex: hexa.substr(0, 7),
-    hexa,
-    hsla: HSVAtoHSLA(hsva),
-    hsva,
-    hue: hsva.h,
-    rgba: HSVAtoRGBA(hsva),
-  }
-}
-
-export function fromHSLA (hsla: HSLA): VColorPickerColor {
-  const hsva = HSLAtoHSVA(hsla)
-  const hexa = HSVAtoHex(hsva)
+  const hsla = HSVAtoHSLA(hsva)
+  const rgba = HSVAtoRGBA(hsva)
   return {
     alpha: hsva.a,
     hex: hexa.substr(0, 7),
@@ -49,18 +37,34 @@ export function fromHSLA (hsla: HSLA): VColorPickerColor {
     hsla,
     hsva,
     hue: hsva.h,
-    rgba: HSVAtoRGBA(hsva),
+    rgba,
+  }
+}
+
+export function fromHSLA (hsla: HSLA): VColorPickerColor {
+  const hsva = HSLAtoHSVA(hsla)
+  const hexa = HSVAtoHex(hsva)
+  const rgba = HSVAtoRGBA(hsva)
+  return {
+    alpha: hsva.a,
+    hex: hexa.substr(0, 7),
+    hexa,
+    hsla,
+    hsva,
+    hue: hsva.h,
+    rgba,
   }
 }
 
 export function fromRGBA (rgba: RGBA): VColorPickerColor {
   const hsva = RGBAtoHSVA(rgba)
   const hexa = RGBAtoHex(rgba)
+  const hsla = HSVAtoHSLA(hsva)
   return {
     alpha: hsva.a,
     hex: hexa.substr(0, 7),
     hexa,
-    hsla: HSVAtoHSLA(hsva),
+    hsla,
     hsva,
     hue: hsva.h,
     rgba,
@@ -69,14 +73,16 @@ export function fromRGBA (rgba: RGBA): VColorPickerColor {
 
 export function fromHexa (hexa: Hexa): VColorPickerColor {
   const hsva = HexToHSVA(hexa)
+  const hsla = HSVAtoHSLA(hsva)
+  const rgba = HSVAtoRGBA(hsva)
   return {
     alpha: hsva.a,
     hex: hexa.substr(0, 7),
     hexa,
-    hsla: HSVAtoHSLA(hsva),
+    hsla,
     hsva,
     hue: hsva.h,
-    rgba: HSVAtoRGBA(hsva),
+    rgba,
   }
 }
 
@@ -120,16 +126,42 @@ export function parseColor (color: any, oldColor: VColorPickerColor | null) {
   return fromRGBA({ r: 255, g: 0, b: 0, a: 1 })
 }
 
+function stripAlpha (color: any, stripAlpha: boolean) {
+  if (stripAlpha) {
+    const { a, ...rest } = color
+
+    return rest
+  }
+
+  return color
+}
+
 export function extractColor (color: VColorPickerColor, input: any) {
+  if (input == null) return color
+
   if (typeof input === 'string') {
     return input.length === 7 ? color.hex : color.hexa
   }
 
   if (typeof input === 'object') {
-    if (has(input, ['r', 'g', 'b'])) return color.rgba
-    else if (has(input, ['h', 's', 'l'])) return color.hsla
-    else if (has(input, ['h', 's', 'v'])) return color.hsva
+    if (has(input, ['r', 'g', 'b'])) return stripAlpha(color.rgba, !input.a)
+    else if (has(input, ['h', 's', 'l'])) return stripAlpha(color.hsla, !input.a)
+    else if (has(input, ['h', 's', 'v'])) return stripAlpha(color.hsva, !input.a)
   }
 
   return color
+}
+
+export function hasAlpha (color: any) {
+  if (!color) return false
+
+  if (typeof color === 'string') {
+    return color.length > 7
+  }
+
+  if (typeof color === 'object') {
+    return has(color, ['a']) || has(color, ['alpha'])
+  }
+
+  return false
 }

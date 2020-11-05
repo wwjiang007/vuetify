@@ -1,6 +1,7 @@
 const BreadcrumbsItem = [{
-  href: 'string',
   disabled: 'boolean',
+  exact: 'boolean',
+  href: 'string',
   link: 'boolean',
   text: 'string | number',
   to: 'string | object',
@@ -13,6 +14,10 @@ module.exports = {
       example: BreadcrumbsItem,
     }],
     slots: [
+      {
+        name: 'default',
+        props: undefined,
+      },
       {
         name: 'divider',
         props: undefined,

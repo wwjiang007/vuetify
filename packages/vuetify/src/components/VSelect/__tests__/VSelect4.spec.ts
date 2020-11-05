@@ -2,6 +2,7 @@
 import VSelect from '../VSelect'
 
 // Utilities
+import { waitAnimationFrame } from '../../../../test'
 import {
   mount,
   Wrapper,
@@ -20,7 +21,10 @@ describe('VSelect.ts', () => {
       el = document.createElement('div')
       el.setAttribute('data-app', 'true')
       document.body.appendChild(el)
+
       return mount(VSelect, {
+        // https://github.com/vuejs/vue-test-utils/issues/1130
+        sync: false,
         ...options,
         mocks: {
           $vuetify: {
@@ -34,6 +38,10 @@ describe('VSelect.ts', () => {
         },
       })
     }
+  })
+
+  afterEach(() => {
+    document.body.removeChild(el)
   })
 
   // https://github.com/vuetifyjs/vuetify/issues/4359
@@ -68,24 +76,15 @@ describe('VSelect.ts', () => {
       },
     })
 
-    const icon = wrapper.find('.v-input__append-inner .v-icon')
-
     expect(wrapper.vm.selectedItems).toHaveLength(1)
     expect(wrapper.vm.isDirty).toBe(true)
-
-    icon.trigger('click')
-
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.vm.selectedItems).toHaveLength(0)
-    expect(wrapper.vm.isDirty).toBe(false)
-    expect(wrapper.vm.internalValue).toBeUndefined()
   })
 
   it('should only calls change once when clearing', async () => {
     const wrapper = mountFunction({
       propsData: {
         clearable: true,
+        items: ['foo'],
         value: 'foo',
       },
     })
@@ -162,6 +161,7 @@ describe('VSelect.ts', () => {
     expect(wrapper.vm.isFocused).toBe(false)
     expect(wrapper.vm.isMenuActive).toBe(false)
   })
+
   // https://github.com/vuetifyjs/vuetify/issues/4853
   it('should select item after typing its first few letters', async () => {
     const wrapper = mountFunction({
@@ -183,7 +183,29 @@ describe('VSelect.ts', () => {
     expect(wrapper.vm.internalValue).toEqual('faa')
   })
 
-  it('should have the correct a11y attributes', async () => {
+  // https://github.com/vuetifyjs/vuetify/issues/10406
+  it('should load more items when typing', async () => {
+    const wrapper = mountFunction({
+      propsData: {
+        items: Array.from({ length: 24 }, (_, i) => 'Item ' + i).concat('foo'),
+      },
+    })
+
+    const input = wrapper.find('input')
+    input.trigger('focus')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.virtualizedItems).toHaveLength(20)
+
+    input.trigger('keypress', { key: 'f' })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.internalValue).toEqual('foo')
+    expect(wrapper.vm.virtualizedItems).toHaveLength(25)
+  })
+
+  // TODO: this fails without sync, nextTick doesn't help
+  // https://github.com/vuejs/vue-test-utils/issues/1130
+  it.skip('should have the correct a11y attributes', async () => {
     const wrapper = mountFunction({
       propsData: {
         eager: true,
@@ -216,13 +238,15 @@ describe('VSelect.ts', () => {
     expect(items.at(1).element.getAttribute('aria-selected')).toBe('true')
 
     const item = items.at(0)
-    const generatedId = `foo-list-item-${(list.vm as any)._uid}`
+    const generatedId = item.find('.v-list-item__title').element.id
 
+    expect(generatedId).toMatch(/^foo-list-item-\d+$/)
     expect(item.element.getAttribute('aria-labelledby')).toBe(generatedId)
-    expect(item.find('.v-list-item__title').element.id).toBe(generatedId)
   })
 
-  it('should not reset menu index when hide-on-selected is used', async () => {
+  // TODO: this fails without sync, nextTick doesn't help
+  // https://github.com/vuejs/vue-test-utils/issues/1130
+  it.skip('should not reset menu index when hide-on-selected is used', async () => {
     const wrapper = mountFunction({
       propsData: {
         items: ['Foo', 'Bar', 'Fizz', 'Buzz'],
@@ -252,5 +276,152 @@ describe('VSelect.ts', () => {
 
     expect(wrapper.vm.internalValue).toBe('Foo')
     expect(wrapper.vm.$refs.menu.listIndex).toBe(-1)
+  })
+
+  it('should not change value when typing on readonly field', async () => {
+    const wrapper = mountFunction({
+      propsData: {
+        items: ['Foo', 'Bar', 'Fizz', 'Buzz'],
+        readonly: true,
+        value: 'Foo',
+      },
+    })
+
+    const input = wrapper.find('input')
+    input.trigger('click')
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.internalValue).toBe('Foo')
+
+    input.trigger('keypress', { key: 'b' })
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.internalValue).toBe('Foo')
+
+    input.trigger('keydown.up')
+
+    // Wait for keydown event to propagate
+    await wrapper.vm.$nextTick()
+
+    // Waiting for items to be rendered
+    await waitAnimationFrame()
+
+    expect(wrapper.vm.internalValue).toBe('Foo')
+  })
+
+  it('should emit listIndex event when navigated by keyboard', async () => {
+    const wrapper = mountFunction({
+      propsData: {
+        items: ['foo', 'bar'],
+      },
+    })
+
+    const listIndexUpdate = jest.fn()
+    wrapper.vm.$on('update:list-index', listIndexUpdate)
+
+    const input = wrapper.find('input')
+    const slot = wrapper.find('.v-input__slot')
+    slot.trigger('click')
+
+    input.trigger('keydown.down')
+    await wrapper.vm.$nextTick()
+    expect(listIndexUpdate).toHaveBeenCalledWith(0)
+    input.trigger('keydown.down')
+    await wrapper.vm.$nextTick()
+    expect(listIndexUpdate).toHaveBeenCalledWith(1)
+  })
+
+  it('should close menu when append icon is clicked', async () => {
+    const wrapper = mountFunction({
+      propsData: {
+        items: ['foo', 'bar'],
+      },
+    })
+
+    const append = wrapper.find('.v-input__append-inner')
+    const slot = wrapper.find('.v-input__slot')
+    slot.trigger('click')
+    expect(wrapper.vm.isMenuActive).toBe(true)
+    append.trigger('mousedown')
+    append.trigger('mouseup')
+    append.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.isMenuActive).toBe(false)
+  })
+
+  it('should open menu when append icon is clicked', async () => {
+    const wrapper = mountFunction({
+      propsData: {
+        items: ['foo', 'bar'],
+      },
+    })
+
+    const append = wrapper.find('.v-input__append-inner')
+
+    append.trigger('mousedown')
+    append.trigger('mouseup')
+    append.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.isMenuActive).toBe(true)
+  })
+
+  // https://github.com/vuetifyjs/vuetify/issues/9960
+  it('should not manipulate menu state if is readonly or disabled', async () => {
+    const wrapper = mountFunction({
+      data: () => ({ hasMouseDown: true }),
+      propsData: { readonly: true },
+    })
+
+    const icon = wrapper.find('.v-input__append-inner')
+
+    icon.trigger('mousedown')
+    icon.trigger('mouseup')
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.isMenuActive).toBe(false)
+
+    wrapper.setProps({
+      disabled: true,
+      readonly: undefined,
+    })
+
+    icon.trigger('mousedown')
+    icon.trigger('mouseup')
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.isMenuActive).toBe(false)
+
+    wrapper.setProps({ disabled: undefined })
+
+    icon.trigger('mousedown')
+    icon.trigger('mouseup')
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.vm.isMenuActive).toBe(true)
+  })
+
+  it('should emit click event', async () => {
+    const item = { value: 'hello', text: 'Hello' }
+    const wrapper = mountFunction({
+      propsData: {
+        value: 'hello',
+        items: [item],
+      },
+    })
+
+    const click = jest.fn()
+    wrapper.vm.$on('click', click)
+
+    const select = wrapper.find('.v-input__slot')
+    select.trigger('click')
+
+    await wrapper.vm.$nextTick()
+
+    expect(click).toHaveBeenCalledTimes(1)
   })
 })

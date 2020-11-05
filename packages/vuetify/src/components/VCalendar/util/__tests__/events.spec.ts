@@ -37,7 +37,7 @@ describe('events.ts', () => {
     expect(isEventOn(parsed, getDayIdentifier(parseTimestamp('2019-02-12')))).toBeFalsy()
     expect(isEventOn(parsed, getDayIdentifier(parseTimestamp('2019-02-13')))).toBeTruthy()
     expect(isEventOn(parsed, getDayIdentifier(parseTimestamp('2019-02-14')))).toBeTruthy()
-    expect(isEventOn(parsed, getDayIdentifier(parseTimestamp('2019-02-15')))).toBeTruthy()
+    expect(isEventOn(parsed, getDayIdentifier(parseTimestamp('2019-02-15')))).toBeFalsy()
     expect(isEventOn(parsed, getDayIdentifier(parseTimestamp('2019-02-16')))).toBeFalsy()
   })
 
@@ -52,11 +52,11 @@ describe('events.ts', () => {
     expect(isEventOverlapping(parsed, getDayIdentifier(parseTimestamp('2019-02-16')), getDayIdentifier(parseTimestamp('2019-02-18')))).toBeFalsy()
   })
 
-  it('should throw an error if start isn\'t defined', () => {
+  it(`should throw an error if start isn't defined`, () => {
     const fn = () => parseEvent({
       end: '2019-02-15',
     }, 0, 'start', 'end')
 
-    expect(fn).toThrow('The start property is required on all events to be a valid timestamp in the format YYYY-MM-DD or YYYY-MM-DD hh:mm')
+    expect(fn).toThrow('undefined is not a valid timestamp. It must be a Date, number of seconds since Epoch, or a string in the format of YYYY-MM-DD or YYYY-MM-DD hh:mm. Zero-padding is optional and seconds are ignored.')
   })
 })

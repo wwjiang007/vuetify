@@ -1,17 +1,21 @@
 export default {
-  close: 'Close',
+  badge: 'สัญลักษณ์',
+  close: 'ปิด',
   dataIterator: {
-    pageText: '{0}-{1} จาก {2}',
     noResultsText: 'ไม่พบข้อมูลที่ค้นหา',
-    loadingText: 'Loading item...',
+    loadingText: 'กำลังโหลดข้อมูล...',
   },
   dataTable: {
     itemsPerPageText: 'แถวต่อหน้า:',
     ariaLabel: {
-      sortDescending: ': Sorted descending. Activate to remove sorting.',
-      sortAscending: ': Sorted ascending. Activate to sort descending.',
-      sortNone: ': Not sorted. Activate to sort ascending.',
+      sortDescending: 'เรียงจากมากไปน้อยอยู่',
+      sortAscending: 'เรียงจากน้อยไปมากอยู่',
+      sortNone: 'ไม่ได้เรียงลำดับ',
+      activateNone: 'กดเพื่อปิดการเรียงลำดับ',
+      activateDescending: 'กดเพื่อเรียงจากมากไปน้อย',
+      activateAscending: 'กดเพื่อเรียงจากน้อยไปมาก',
     },
+    sortBy: 'เรียงตาม',
   },
   dataFooter: {
     itemsPerPageText: 'รายการต่อหน้า:',
@@ -20,20 +24,41 @@ export default {
     prevPage: 'หน้าที่แล้ว',
     firstPage: 'หน้าแรก',
     lastPage: 'หน้าสุดท้าย',
+    pageText: '{0}-{1} จาก {2}',
   },
   datePicker: {
     itemsSelected: 'เลือก {0} วัน',
+    nextMonthAriaLabel: 'เดือนถัดไป',
+    nextYearAriaLabel: 'ปีถัดไป',
+    prevMonthAriaLabel: 'เดือนก่อนหน้า',
+    prevYearAriaLabel: 'ปีก่อนหน้า',
   },
   noDataText: 'ไม่มีข้อมูล',
   carousel: {
     prev: 'ภาพก่อนหน้า',
-    next: 'ภาพต่อไป',
+    next: 'ภาพถัดไป',
+    ariaLabel: {
+      delimiter: 'ภาพสไลด์ที่ {0} จาก {1}',
+    },
   },
   calendar: {
-    moreEvents: 'อีก {0}',
+    moreEvents: 'มีอีก {0}',
   },
   fileInput: {
-    counter: '{0} files',
-    counterSize: '{0} files ({1} in total)',
+    counter: '{0} ไฟล์',
+    counterSize: '{0} ไฟล์ (รวม {1})',
+  },
+  timePicker: {
+    am: 'AM',
+    pm: 'PM',
+  },
+  pagination: {
+    ariaLabel: {
+      wrapper: 'การนำทางไปยังหน้า',
+      next: 'หน้าต่อไป',
+      previous: 'หน้าที่แล้ว',
+      page: 'ไปที่หน้า {0}',
+      currentPage: 'หน้าปัจจุบัน (หน้า {0})',
+    },
   },
 }

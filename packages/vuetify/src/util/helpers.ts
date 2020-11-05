@@ -1,6 +1,7 @@
 import Vue from 'vue'
-import { VNode, VNodeDirective, FunctionalComponentOptions } from 'vue/types'
+import { VNode, VNodeDirective } from 'vue/types'
 import { VuetifyIcon } from 'vuetify/types/services/icons'
+import { DataTableCompareFunction, SelectItemKey, ItemGroup } from 'vuetify/types'
 
 export function createSimpleFunctional (
   c: string,
@@ -18,117 +19,6 @@ export function createSimpleFunctional (
       return h(el, data, children)
     },
   })
-}
-
-function mergeTransitions (
-  transitions: undefined | Function | Function[],
-  array: Function[]
-) {
-  if (Array.isArray(transitions)) return transitions.concat(array)
-  if (transitions) array.push(transitions)
-  return array
-}
-
-export function createSimpleTransition (
-  name: string,
-  origin = 'top center 0',
-  mode?: string
-): FunctionalComponentOptions {
-  return {
-    name,
-
-    functional: true,
-
-    props: {
-      group: {
-        type: Boolean,
-        default: false,
-      },
-      hideOnLeave: {
-        type: Boolean,
-        default: false,
-      },
-      leaveAbsolute: {
-        type: Boolean,
-        default: false,
-      },
-      mode: {
-        type: String,
-        default: mode,
-      },
-      origin: {
-        type: String,
-        default: origin,
-      },
-    },
-
-    render (h, context): VNode {
-      const tag = `transition${context.props.group ? '-group' : ''}`
-      context.data = context.data || {}
-      context.data.props = {
-        name,
-        mode: context.props.mode,
-      }
-      context.data.on = context.data.on || {}
-      if (!Object.isExtensible(context.data.on)) {
-        context.data.on = { ...context.data.on }
-      }
-
-      const ourBeforeEnter: Function[] = []
-      const ourLeave: Function[] = []
-      const absolute = (el: HTMLElement) => (el.style.position = 'absolute')
-
-      ourBeforeEnter.push((el: HTMLElement) => {
-        el.style.transformOrigin = context.props.origin
-        el.style.webkitTransformOrigin = context.props.origin
-      })
-
-      if (context.props.leaveAbsolute) ourLeave.push(absolute)
-      if (context.props.hideOnLeave) {
-        ourLeave.push((el: HTMLElement) => (el.style.display = 'none'))
-      }
-
-      const { beforeEnter, leave } = context.data.on
-
-      // Type says Function | Function[] but
-      // will only work if provided a function
-      context.data.on.beforeEnter = () => mergeTransitions(beforeEnter, ourBeforeEnter)
-      context.data.on.leave = mergeTransitions(leave, ourLeave)
-
-      return h(tag, context.data, context.children)
-    },
-  }
-}
-
-export function createJavaScriptTransition (
-  name: string,
-  functions: Record<string, any>,
-  mode = 'in-out'
-): FunctionalComponentOptions {
-  return {
-    name,
-
-    functional: true,
-
-    props: {
-      mode: {
-        type: String,
-        default: mode,
-      },
-    },
-
-    render (h, context): VNode {
-      const data = {
-        props: {
-          ...context.props,
-          name,
-        },
-        on: functions,
-      }
-
-      return h('transition', data, context.children)
-    },
-  }
 }
 
 export type BindingConfig = Pick<VNodeDirective, 'arg' | 'modifiers' | 'value'>
@@ -199,9 +89,13 @@ export function getNestedValue (obj: any, path: (string | number)[], fallback?: 
 export function deepEqual (a: any, b: any): boolean {
   if (a === b) return true
 
-  if (a instanceof Date && b instanceof Date) {
-    // If the values are Date, they were convert to timestamp with getTime and compare it
-    if (a.getTime() !== b.getTime()) return false
+  if (
+    a instanceof Date &&
+    b instanceof Date &&
+    a.getTime() !== b.getTime()
+  ) {
+    // If the values are Date, compare them as timestamps
+    return false
   }
 
   if (a !== Object(a) || b !== Object(b)) {
@@ -230,7 +124,7 @@ export function getObjectValueByPath (obj: any, path: string, fallback?: any): a
 
 export function getPropertyFromItem (
   item: object,
-  property: string | (string | number)[] | ((item: object, fallback?: any) => any),
+  property: SelectItemKey,
   fallback?: any
 ): any {
   if (property == null) return item === undefined ? fallback : item
@@ -322,17 +216,15 @@ export const keyCodes = Object.freeze({
   pagedown: 34,
 })
 
-const ICONS_PREFIX = '$vuetify.'
-
-// This remaps internal names like '$vuetify.icons.cancel'
+// This remaps internal names like '$cancel' or '$vuetify.icons.cancel'
 // to the current name or component for that icon.
 export function remapInternalIcon (vm: Vue, iconName: string): VuetifyIcon {
-  if (!iconName.startsWith(ICONS_PREFIX)) {
+  if (!iconName.startsWith('$')) {
     return iconName
   }
 
   // Get the target icon name
-  const iconPath = `$vuetify.icons.values.${iconName.split('.').pop()}`
+  const iconPath = `$vuetify.icons.values.${iconName.split('$').pop()!.split('.').pop()}`
 
   // Now look up icon indirection name,
   // e.g. '$vuetify.icons.values.cancel'
@@ -369,25 +261,40 @@ export function upperFirst (str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
-export function groupByProperty (xs: any[], key: string): Record<string, any[]> {
-  return xs.reduce((rv, x) => {
-    (rv[x[key]] = rv[x[key]] || []).push(x)
-    return rv
-  }, {})
+export function groupItems<T extends any = any> (
+  items: T[],
+  groupBy: string[],
+  groupDesc: boolean[]
+): ItemGroup<T>[] {
+  const key = groupBy[0]
+  const groups: ItemGroup<T>[] = []
+  let current = null
+  for (var i = 0; i < items.length; i++) {
+    const item = items[i]
+    const val = getObjectValueByPath(item, key)
+    if (current !== val) {
+      current = val
+      groups.push({
+        name: val,
+        items: [],
+      })
+    }
+    groups[groups.length - 1].items.push(item)
+  }
+  return groups
 }
 
 export function wrapInArray<T> (v: T | T[] | null | undefined): T[] { return v != null ? Array.isArray(v) ? v : [v] : [] }
 
-export type compareFn<T = any> = (a: T, b: T) => number
-
-export function sortItems (
-  items: any[],
+export function sortItems<T extends any = any> (
+  items: T[],
   sortBy: string[],
   sortDesc: boolean[],
   locale: string,
-  customSorters?: Record<string, compareFn>
-) {
+  customSorters?: Record<string, DataTableCompareFunction<T>>
+): T[] {
   if (sortBy === null || !sortBy.length) return items
+  const stringCollator = new Intl.Collator(locale, { sensitivity: 'accent', usage: 'sort' })
 
   return items.sort((a, b) => {
     for (let i = 0; i < sortBy.length; i++) {
@@ -400,26 +307,30 @@ export function sortItems (
         [sortA, sortB] = [sortB, sortA]
       }
 
-      if (customSorters && customSorters[sortKey]) return customSorters[sortKey](sortA, sortB)
+      if (customSorters && customSorters[sortKey]) {
+        const customResult = customSorters[sortKey](sortA, sortB)
+
+        if (!customResult) continue
+
+        return customResult
+      }
 
       // Check if both cannot be evaluated
       if (sortA === null && sortB === null) {
-        return 0
+        continue
       }
 
       [sortA, sortB] = [sortA, sortB].map(s => (s || '').toString().toLocaleLowerCase())
 
       if (sortA !== sortB) {
         if (!isNaN(sortA) && !isNaN(sortB)) return Number(sortA) - Number(sortB)
-        return sortA.localeCompare(sortB, locale)
+        return stringCollator.compare(sortA, sortB)
       }
     }
 
     return 0
   })
 }
-
-export type FilterFn = (value: any, search: string | null, item: any) => boolean
 
 export function defaultFilter (value: any, search: string | null, item: any) {
   return value != null &&
@@ -428,12 +339,12 @@ export function defaultFilter (value: any, search: string | null, item: any) {
     value.toString().toLocaleLowerCase().indexOf(search.toLocaleLowerCase()) !== -1
 }
 
-export function searchItems (items: any[], search: string) {
+export function searchItems<T extends any = any> (items: T[], search: string): T[] {
   if (!search) return items
   search = search.toString().toLowerCase()
   if (search.trim() === '') return items
 
-  return items.filter(item => Object.keys(item).some(key => defaultFilter(getObjectValueByPath(item, key), search, item)))
+  return items.filter((item: any) => Object.keys(item).some(key => defaultFilter(getObjectValueByPath(item, key), search, item)))
 }
 
 /**
@@ -458,6 +369,17 @@ export function debounce (fn: Function, delay: number) {
   }
 }
 
+export function throttle<T extends (...args: any[]) => any> (fn: T, limit: number) {
+  let throttling = false
+  return (...args: Parameters<T>): void | ReturnType<T> => {
+    if (!throttling) {
+      throttling = true
+      setTimeout(() => throttling = false, limit)
+      return fn(...args)
+    }
+  }
+}
+
 export function getPrefixedScopedSlots (prefix: string, scopedSlots: any) {
   return Object.keys(scopedSlots).filter(k => k.startsWith(prefix)).reduce((obj: any, k: string) => {
     obj[k.replace(prefix, '')] = scopedSlots[k]
@@ -465,9 +387,9 @@ export function getPrefixedScopedSlots (prefix: string, scopedSlots: any) {
   }, {})
 }
 
-export function getSlot (vm: Vue, name = 'default', data?: object, optional = false) {
+export function getSlot (vm: Vue, name = 'default', data?: object | (() => object), optional = false) {
   if (vm.$scopedSlots[name]) {
-    return vm.$scopedSlots[name]!(data)
+    return vm.$scopedSlots[name]!(data instanceof Function ? data() : data)
   } else if (vm.$slots[name] && (!data || optional)) {
     return vm.$slots[name]
   }
@@ -505,4 +427,42 @@ export function humanReadableFileSize (bytes: number, binary = false): string {
     ++unit
   }
   return `${bytes.toFixed(1)} ${prefix[unit]}B`
+}
+
+export function camelizeObjectKeys (obj: Record<string, any> | null | undefined) {
+  if (!obj) return {}
+
+  return Object.keys(obj).reduce((o: any, key: string) => {
+    o[camelize(key)] = obj[key]
+    return o
+  }, {})
+}
+
+export function mergeDeep (
+  source: Dictionary<any> = {},
+  target: Dictionary<any> = {}
+) {
+  for (const key in target) {
+    const sourceProperty = source[key]
+    const targetProperty = target[key]
+
+    // Only continue deep merging if
+    // both properties are objects
+    if (
+      isObject(sourceProperty) &&
+      isObject(targetProperty)
+    ) {
+      source[key] = mergeDeep(sourceProperty, targetProperty)
+
+      continue
+    }
+
+    source[key] = targetProperty
+  }
+
+  return source
+}
+
+export function fillArray<T> (length: number, obj: T) {
+  return Array(length).fill(obj)
 }

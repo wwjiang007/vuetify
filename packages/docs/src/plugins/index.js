@@ -1,8 +1,17 @@
-import marked from 'marked'
+/**
+ * plugins/index.js
+ *
+ * Automatically included in `./src/main.js`
+ */
 
-// Make this dynamic
-import '@/plugins/no-ssr'
+import { loadFonts } from './webfontloader'
+import { registerComponents } from './app'
+import { useMeta } from './vue-meta'
+import { useVuetify } from '@/vuetify'
 
-marked.setOptions({
-  headerIds: false,
-})
+export function registerPlugins (app) {
+  registerComponents(app)
+  loadFonts(app)
+  useMeta(app)
+  useVuetify(app)
+}

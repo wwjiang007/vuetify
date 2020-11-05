@@ -2,6 +2,10 @@ module.exports = {
   'v-dialog': {
     slots: [
       {
+        name: 'default',
+        props: undefined,
+      },
+      {
         name: 'activator',
         props: {
           on: '{ [eventName]: eventHandler }',
@@ -12,7 +16,11 @@ module.exports = {
     events: [
       {
         name: 'click:outside',
-        value: 'void',
+        value: 'MouseEvent',
+      },
+      {
+        name: 'input',
+        value: 'Boolean',
       },
       {
         name: 'keydown',

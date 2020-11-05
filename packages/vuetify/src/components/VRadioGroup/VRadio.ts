@@ -8,11 +8,12 @@ import VIcon from '../VIcon'
 import VInput from '../VInput'
 
 // Mixins
+import BindsAttrs from '../../mixins/binds-attrs'
 import Colorable from '../../mixins/colorable'
 import { factory as GroupableFactory } from '../../mixins/groupable'
 import Rippleable from '../../mixins/rippleable'
 import Themeable from '../../mixins/themeable'
-import Selectable from '../../mixins/selectable'
+import Selectable, { prevent } from '../../mixins/selectable'
 
 // Utilities
 import { getSlot } from '../../util/helpers'
@@ -20,8 +21,10 @@ import { getSlot } from '../../util/helpers'
 // Types
 import { VNode, VNodeData } from 'vue'
 import mixins from '../../util/mixins'
+import { mergeListeners } from '../../util/mergeData'
 
 const baseMixins = mixins(
+  BindsAttrs,
   Colorable,
   Rippleable,
   GroupableFactory('radioGroup'),
@@ -40,16 +43,16 @@ export default baseMixins.extend<options>().extend({
 
   props: {
     disabled: Boolean,
+    id: String,
     label: String,
     name: String,
-    id: String,
-    onIcon: {
-      type: String,
-      default: '$vuetify.icons.radioOn',
-    },
     offIcon: {
       type: String,
-      default: '$vuetify.icons.radioOff',
+      default: '$radioOff',
+    },
+    onIcon: {
+      type: String,
+      default: '$radioOn',
     },
     readonly: Boolean,
     value: {
@@ -86,10 +89,16 @@ export default baseMixins.extend<options>().extend({
       return (this.radioGroup || {}).hasState
     },
     isDisabled (): boolean {
-      return this.disabled || !!(this.radioGroup || {}).disabled
+      return this.disabled || (
+        !!this.radioGroup &&
+        this.radioGroup.isDisabled
+      )
     },
     isReadonly (): boolean {
-      return this.readonly || !!(this.radioGroup || {}).readonly
+      return this.readonly || (
+        !!this.radioGroup &&
+        this.radioGroup.isReadonly
+      )
     },
     computedName (): string {
       if (this.name || !this.radioGroup) {
@@ -97,6 +106,9 @@ export default baseMixins.extend<options>().extend({
       }
 
       return this.radioGroup.name || `radio-${this.radioGroup._uid}`
+    },
+    rippleState (): string | undefined {
+      return Selectable.options.computed.rippleState.call(this)
     },
     validationState (): string | undefined {
       return (this.radioGroup || {}).validationState || this.computedColor
@@ -115,14 +127,8 @@ export default baseMixins.extend<options>().extend({
 
       return this.$createElement(VLabel, {
         on: {
-          click: (e: Event) => {
-            // Prevent label from
-            // causing the input
-            // to focus
-            e.preventDefault()
-
-            this.onChange()
-          },
+          // Label shouldn't cause the input to focus
+          click: prevent,
         },
         attrs: {
           for: this.computedId,
@@ -137,13 +143,17 @@ export default baseMixins.extend<options>().extend({
       return this.$createElement('div', {
         staticClass: 'v-input--selection-controls__input',
       }, [
+        this.$createElement(VIcon, this.setTextColor(this.validationState, {
+          props: {
+            dense: this.radioGroup && this.radioGroup.dense,
+          },
+        }), this.computedIcon),
         this.genInput({
           name: this.computedName,
           value: this.value,
-          ...this.$attrs,
+          ...this.attrs$,
         }),
-        this.genRipple(this.setTextColor(this.validationState)),
-        this.$createElement(VIcon, this.setTextColor(this.validationState, {}), this.computedIcon),
+        this.genRipple(this.setTextColor(this.rippleState)),
       ])
     },
     onFocus (e: Event) {
@@ -163,10 +173,13 @@ export default baseMixins.extend<options>().extend({
   },
 
   render (h): VNode {
-    const data = {
+    const data: VNodeData = {
       staticClass: 'v-radio',
       class: this.classes,
-    } as VNodeData
+      on: mergeListeners({
+        click: this.onChange,
+      }, this.listeners$),
+    }
 
     return h('div', data, [
       this.genRadio(),

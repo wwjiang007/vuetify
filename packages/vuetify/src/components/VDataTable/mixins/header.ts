@@ -1,24 +1,12 @@
 import { VDataTable } from '../'
-import { DataOptions } from '../../VData/VData'
 import VIcon from '../../VIcon'
 import VSimpleCheckbox from '../../VCheckbox/VSimpleCheckbox'
 import ripple from '../../../directives/ripple'
 
-import Vue, { PropType } from 'vue'
+import Vue from 'vue'
+import { PropValidator } from 'vue/types/options'
 import mixins from '../../../util/mixins'
-import { compareFn } from '../../../util/helpers'
-
-export interface TableHeader {
-  text: string
-  value: string
-  align?: 'start' | 'center' | 'end'
-  sortable?: boolean
-  divider?: boolean
-  class?: string | string[]
-  width?: string | number
-  filter?: (value: any, search: string | null, item: any) => boolean
-  sort?: compareFn
-}
+import { DataOptions, DataTableHeader } from 'vuetify/types'
 
 type VDataTableInstance = InstanceType<typeof VDataTable>
 
@@ -34,11 +22,11 @@ export default mixins<options>().extend({
 
   props: {
     headers: {
-      type: Array as PropType<TableHeader[]>,
-      required: true,
-    },
+      type: Array,
+      default: () => ([]),
+    } as PropValidator<DataTableHeader[]>,
     options: {
-      type: Object as PropType<DataOptions>,
+      type: Object,
       default: () => ({
         page: 1,
         itemsPerPage: 10,
@@ -49,10 +37,10 @@ export default mixins<options>().extend({
         multiSort: false,
         mustSort: false,
       }),
-    },
+    } as PropValidator<DataOptions>,
     sortIcon: {
       type: String,
-      default: '$vuetify.icons.sort',
+      default: '$sort',
     },
     everyItem: Boolean,
     someItems: Boolean,
@@ -84,6 +72,7 @@ export default mixins<options>().extend({
     },
     genSortIcon () {
       return this.$createElement(VIcon, {
+        staticClass: 'v-data-table-header__icon',
         props: {
           size: 18,
         },

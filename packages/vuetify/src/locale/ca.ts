@@ -1,39 +1,64 @@
 export default {
-  close: 'Close',
+  badge: 'Insígnia',
+  close: 'Tancar',
   dataIterator: {
-    pageText: '{0}-{1} de {2}',
     noResultsText: 'Sense dades per mostrar',
-    loadingText: 'Loading item...',
+    loadingText: 'Carregant...',
   },
   dataTable: {
     itemsPerPageText: 'Files per pàgina:',
     ariaLabel: {
-      sortDescending: ': Sorted descending. Activate to remove sorting.',
-      sortAscending: ': Sorted ascending. Activate to sort descending.',
-      sortNone: ': Not sorted. Activate to sort ascending.',
+      sortDescending: 'Ordre descendent. Premi per treure la ordenació.',
+      sortAscending: 'Ordre ascendent. Premi per ordenar descendent.',
+      sortNone: 'Sense ordenar. Premi per ordenar ascendent.',
+      activateNone: 'Activate to remove sorting.',
+      activateDescending: 'Activate to sort descending.',
+      activateAscending: 'Activate to sort ascending.',
     },
+    sortBy: 'Ordenat per',
   },
   dataFooter: {
     itemsPerPageText: 'Elements per pàgina:',
     itemsPerPageAll: 'Tot',
-    nextPage: 'Pàgina Següent',
-    prevPage: 'Pàgina Anterior',
-    firstPage: 'Pàgina Primera',
-    lastPage: 'Pàgina Darrera',
+    nextPage: 'Pàgina següent',
+    prevPage: 'Pàgina anterior',
+    firstPage: 'Primera pàgina',
+    lastPage: 'Última pàgina',
+    pageText: '{0}-{1} de {2}',
   },
   datePicker: {
     itemsSelected: '{0} seleccionats',
+    nextMonthAriaLabel: 'El mes que ve',
+    nextYearAriaLabel: `L'any que ve`,
+    prevMonthAriaLabel: 'Mes anterior',
+    prevYearAriaLabel: 'Any anterior',
   },
   noDataText: 'Sense dades',
   carousel: {
     prev: 'Visualització prèvia',
-    next: 'Següent visual',
+    next: 'Visualització següent',
+    ariaLabel: {
+      delimiter: 'Diapositiva {0} of {1}',
+    },
   },
   calendar: {
     moreEvents: '{0} més',
   },
   fileInput: {
-    counter: '{0} files',
-    counterSize: '{0} files ({1} in total)',
+    counter: '{0} fitxers',
+    counterSize: '{0} fitxers ({1} en total)',
+  },
+  timePicker: {
+    am: 'AM',
+    pm: 'PM',
+  },
+  pagination: {
+    ariaLabel: {
+      wrapper: 'Navegació de la pàgina',
+      next: 'Pàgina següent',
+      previous: 'Pàgina anterior',
+      page: 'Ves a la pàgina {0}',
+      currentPage: 'Pàgina actual, pàgina {0}',
+    },
   },
 }

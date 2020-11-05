@@ -8,6 +8,7 @@ import VListItem from './VListItem'
 import VListItemIcon from './VListItemIcon'
 
 // Mixins
+import BindsAttrs from '../../mixins/binds-attrs'
 import Bootable from '../../mixins/bootable'
 import Colorable from '../../mixins/colorable'
 import Toggleable from '../../mixins/toggleable'
@@ -21,12 +22,14 @@ import { VExpandTransition } from '../transitions'
 
 // Utils
 import mixins, { ExtractVue } from '../../util/mixins'
+import { getSlot } from '../../util/helpers'
 
 // Types
 import { VNode } from 'vue'
 import { Route } from 'vue-router'
 
 const baseMixins = mixins(
+  BindsAttrs,
   Bootable,
   Colorable,
   RegistrableInject('list'),
@@ -55,7 +58,7 @@ export default baseMixins.extend<options>().extend({
     },
     appendIcon: {
       type: String,
-      default: '$vuetify.icons.expand',
+      default: '$expand',
     },
     color: {
       type: String,
@@ -149,7 +152,7 @@ export default baseMixins.extend<options>().extend({
           value: this.ripple,
         }],
         on: {
-          ...this.$listeners,
+          ...this.listeners$,
           click: this.click,
         },
       }, [
@@ -158,23 +161,21 @@ export default baseMixins.extend<options>().extend({
         this.genAppendIcon(),
       ])
     },
-    genItems (): VNode {
-      return this.$createElement('div', {
-        staticClass: 'v-list-group__items',
-        directives: [{
-          name: 'show',
-          value: this.isActive,
-        }],
-      }, this.showLazyContent([
-        this.$createElement('div', this.$slots.default),
-      ]))
+    genItems (): VNode[] {
+      return this.showLazyContent(() => [
+        this.$createElement('div', {
+          staticClass: 'v-list-group__items',
+          directives: [{
+            name: 'show',
+            value: this.isActive,
+          }],
+        }, getSlot(this)),
+      ])
     },
     genPrependIcon (): VNode | null {
-      const icon = this.prependIcon
-        ? this.prependIcon
-        : this.subGroup
-          ? '$vuetify.icons.subgroup'
-          : false
+      const icon = this.subGroup && this.prependIcon == null
+        ? '$subgroup'
+        : this.prependIcon
 
       if (!icon && !this.$slots.prependIcon) return null
 
@@ -214,7 +215,7 @@ export default baseMixins.extend<options>().extend({
       class: this.classes,
     }), [
       this.genHeader(),
-      h(VExpandTransition, [this.genItems()]),
+      h(VExpandTransition, this.genItems()),
     ])
   },
 })

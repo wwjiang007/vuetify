@@ -49,7 +49,7 @@ export default Selectable.extend({
     attrs (): object {
       return {
         'aria-checked': String(this.isActive),
-        'aria-disabled': String(this.disabled),
+        'aria-disabled': String(this.isDisabled),
         role: 'switch',
       }
     },
@@ -59,7 +59,7 @@ export default Selectable.extend({
     validationState (): string | undefined {
       if (this.hasError && this.shouldValidate) return 'error'
       if (this.hasSuccess) return 'success'
-      if (this.hasColor) return this.computedColor
+      if (this.hasColor !== null) return this.computedColor
       return undefined
     },
     switchData (): VNodeData {
@@ -81,8 +81,8 @@ export default Selectable.extend({
         staticClass: 'v-input--selection-controls__input',
       }, [
         this.genInput('checkbox', {
-          ...this.$attrs,
           ...this.attrs,
+          ...this.attrs$,
         }),
         this.genRipple(this.setTextColor(this.validationState, {
           directives: [{

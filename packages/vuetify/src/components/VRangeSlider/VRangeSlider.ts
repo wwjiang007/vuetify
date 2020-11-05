@@ -21,7 +21,7 @@ export default VSlider.extend({
     value: {
       type: Array,
       default: () => ([0, 0]),
-    } as PropValidator<number[]>,
+    } as unknown as PropValidator<[number, number]>,
   },
 
   data () {
@@ -46,7 +46,7 @@ export default VSlider.extend({
         // Round value to ensure the
         // entire slider range can
         // be selected with step
-        let value = val.map(v => this.roundValue(Math.min(Math.max(v, this.minValue), this.maxValue)))
+        let value = val.map((v = 0) => this.roundValue(Math.min(Math.max(v, this.minValue), this.maxValue)))
 
         // Switch values if range and wrong order
         if (value[0] > value[1] || value[1] < value[0]) {
@@ -68,17 +68,6 @@ export default VSlider.extend({
       return this.internalValue.map((v: number) => (
         this.roundValue(v) - this.minValue) / (this.maxValue - this.minValue) * 100
       )
-    },
-    trackFillStyles (): Partial<CSSStyleDeclaration> {
-      const styles = VSlider.options.computed.trackFillStyles.call(this)
-      const fillPercent = Math.abs(this.inputWidth[0] - this.inputWidth[1])
-      const dir = this.vertical ? 'height' : 'width'
-      const start = this.vertical ? this.$vuetify.rtl ? 'top' : 'bottom' : this.$vuetify.rtl ? 'right' : 'left'
-
-      styles[dir] = `${fillPercent}%`
-      styles[start] = `${this.inputWidth[0]}%`
-
-      return styles
     },
   },
 
@@ -107,6 +96,7 @@ export default VSlider.extend({
         input.data = input.data || {}
         input.data.attrs = input.data.attrs || {}
         input.data.attrs.value = this.internalValue[i]
+        input.data.attrs.id = `input-${i ? 'max' : 'min'}-${this._uid}`
 
         return input
       })
@@ -114,32 +104,31 @@ export default VSlider.extend({
     genTrackContainer () {
       const children = []
 
-      if (this.disabled) {
-        const disabledPadding = 10
-        const sections: [number, number, number, number][] = [
-          [0, this.inputWidth[0], 0, -disabledPadding],
-          [this.inputWidth[0], Math.abs(this.inputWidth[1] - this.inputWidth[0]), disabledPadding, disabledPadding * -2],
-          [this.inputWidth[1], Math.abs(100 - this.inputWidth[1]), disabledPadding, 0],
-        ]
+      const padding = this.isDisabled ? 10 : 0
+      const sections: { class: string, color: string | undefined, styles: [number, number, number, number] }[] = [
+        {
+          class: 'v-slider__track-background',
+          color: this.computedTrackColor,
+          styles: [0, this.inputWidth[0], 0, -padding],
+        },
+        {
+          class: this.isDisabled ? 'v-slider__track-background' : 'v-slider__track-fill',
+          color: this.isDisabled ? this.computedTrackColor : this.computedColor,
+          styles: [this.inputWidth[0], Math.abs(this.inputWidth[1] - this.inputWidth[0]), padding, padding * -2],
+        },
+        {
+          class: 'v-slider__track-background',
+          color: this.computedTrackColor,
+          styles: [this.inputWidth[1], Math.abs(100 - this.inputWidth[1]), padding, -padding],
+        },
+      ]
 
-        if (this.$vuetify.rtl) sections.reverse()
+      if (this.$vuetify.rtl) sections.reverse()
 
-        children.push(...sections.map(section => this.$createElement('div', this.setBackgroundColor(this.computedTrackColor, {
-          staticClass: 'v-slider__track-background',
-          style: this.getTrackStyle(...section),
-        }))))
-      } else {
-        children.push(
-          this.$createElement('div', this.setBackgroundColor(this.computedTrackColor, {
-            staticClass: 'v-slider__track-background',
-            style: this.getTrackStyle(0, 100),
-          })),
-          this.$createElement('div', this.setBackgroundColor(this.computedColor, {
-            staticClass: 'v-slider__track-fill',
-            style: this.trackFillStyles,
-          }))
-        )
-      }
+      children.push(...sections.map(section => this.$createElement('div', this.setBackgroundColor(section.color, {
+        staticClass: section.class,
+        style: this.getTrackStyle(...section.styles),
+      }))))
 
       return this.$createElement('div', {
         staticClass: 'v-slider__track-container',
@@ -161,39 +150,51 @@ export default VSlider.extend({
           const onFocus = (e: Event) => {
             this.isFocused = true
             this.activeThumb = index
+
+            this.$emit('focus', e)
+          }
+
+          const onBlur = (e: Event) => {
+            this.isFocused = false
+            this.activeThumb = null
+
+            this.$emit('blur', e)
           }
 
           const valueWidth = this.inputWidth[index]
           const isActive = this.isActive && this.activeThumb === index
           const isFocused = this.isFocused && this.activeThumb === index
 
-          return this.genThumbContainer(value, valueWidth, isActive, isFocused, onDrag, onFocus, `thumb_${index}`)
+          return this.genThumbContainer(value, valueWidth, isActive, isFocused, onDrag, onFocus, onBlur, `thumb_${index}`)
         }),
       ]
     },
-    onFocus (index: number) {
-      this.isFocused = true
-      this.activeThumb = index
-    },
-    onBlur () {
-      this.isFocused = false
-      this.activeThumb = null
-    },
     onSliderClick (e: MouseEvent) {
       if (!this.isActive) {
-        // It doesn't seem to matter if we focus on the wrong thumb here
-        const thumb = this.$refs.thumb_1 as HTMLElement
-        thumb.focus()
+        if (this.noClick) {
+          this.noClick = false
+          return
+        }
 
-        this.onMouseMove(e, true)
+        const { value, isInsideTrack } = this.parseMouseMove(e)
+
+        if (isInsideTrack) {
+          this.activeThumb = this.getIndexOfClosestValue(this.internalValue, value)
+          const refName = `thumb_${this.activeThumb}`
+          const thumbRef = this.$refs[refName] as HTMLElement
+          thumbRef.focus()
+        }
+
+        this.setInternalValue(value)
+
         this.$emit('change', this.internalValue)
       }
     },
-    onMouseMove (e: MouseEvent, trackClick = false) {
+    onMouseMove (e: MouseEvent) {
       const { value, isInsideTrack } = this.parseMouseMove(e)
 
-      if (isInsideTrack) {
-        if (trackClick) this.activeThumb = this.getIndexOfClosestValue(this.internalValue, value)
+      if (isInsideTrack && this.activeThumb === null) {
+        this.activeThumb = this.getIndexOfClosestValue(this.internalValue, value)
       }
 
       this.setInternalValue(value)
@@ -206,7 +207,7 @@ export default VSlider.extend({
       if (value == null) return
 
       this.setInternalValue(value)
-      this.$emit('change', value)
+      this.$emit('change', this.internalValue)
     },
     setInternalValue (value: number) {
       this.internalValue = this.internalValue.map((v: number, i: number) => {

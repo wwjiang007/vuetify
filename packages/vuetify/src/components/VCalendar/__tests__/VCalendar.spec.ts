@@ -13,7 +13,8 @@ describe('VCalendar', () => {
   beforeEach(() => {
     mountFunction = (options?: MountOptions<Instance>) => {
       return mount(VCalendar, {
-        ...options,
+        // https://github.com/vuejs/vue-test-utils/issues/1130
+        sync: false,
         mocks: {
           $vuetify: {
             lang: {
@@ -21,6 +22,7 @@ describe('VCalendar', () => {
             },
           },
         },
+        ...options,
       })
     }
   })
@@ -29,6 +31,23 @@ describe('VCalendar', () => {
     const wrapper = mountFunction({
       propsData: {
         type: 'day',
+        start: '2018-01-29',
+        end: '2018-02-04',
+        now: '2019-02-17',
+      },
+      methods: {
+        getNow: () => parseDate(new Date('2019-02-17')),
+      },
+    })
+
+    expect(wrapper.classes('v-calendar-daily')).toBeTruthy()
+    expect(wrapper.html()).toMatchSnapshot()
+  })
+
+  it('should render 4-day view', async () => {
+    const wrapper = mountFunction({
+      propsData: {
+        type: '4day',
         start: '2018-01-29',
         end: '2018-02-04',
         now: '2019-02-17',

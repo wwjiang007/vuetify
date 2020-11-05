@@ -48,6 +48,10 @@ export default mixins(
     coloredBorder: Boolean,
     dense: Boolean,
     dismissible: Boolean,
+    closeIcon: {
+      type: String,
+      default: '$cancel',
+    },
     icon: {
       default: '',
       type: [Boolean, String],
@@ -103,6 +107,7 @@ export default mixins(
         props: {
           color,
           icon: true,
+          small: true,
         },
         attrs: {
           'aria-label': this.$vuetify.lang.t(this.closeLabel),
@@ -113,7 +118,7 @@ export default mixins(
       }, [
         this.$createElement(VIcon, {
           props: { color },
-        }, '$vuetify.icons.cancel'),
+        }, this.closeIcon),
       ])
     },
     __cachedIcon (): VNode | null {
@@ -146,14 +151,9 @@ export default mixins(
     computedIcon (): string | boolean {
       if (this.icon === false) return false
       if (typeof this.icon === 'string' && this.icon) return this.icon
+      if (!['error', 'info', 'success', 'warning'].includes(this.type)) return false
 
-      switch (this.type) {
-        case 'info': return '$vuetify.icons.info'
-        case 'error': return '$vuetify.icons.error'
-        case 'success': return '$vuetify.icons.success'
-        case 'warning': return '$vuetify.icons.warning'
-        default: return false
-      }
+      return `$${this.type}`
     },
     hasColoredIcon (): boolean {
       return (
@@ -214,6 +214,7 @@ export default mixins(
         attrs: {
           role: 'alert',
         },
+        on: this.listeners$,
         class: this.classes,
         style: this.styles,
         directives: [{

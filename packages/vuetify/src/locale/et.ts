@@ -1,17 +1,21 @@
 export default {
-  close: 'Close',
+  badge: 'Märk',
+  close: 'Sulge',
   dataIterator: {
-    pageText: '{0}-{1} {2}st',
     noResultsText: 'Vastavaid kirjeid ei leitud',
-    loadingText: 'Loading item...',
+    loadingText: 'Andmeid laaditakse...',
   },
   dataTable: {
     itemsPerPageText: 'Ridu leheküljel:',
     ariaLabel: {
-      sortDescending: ': Sorted descending. Activate to remove sorting.',
-      sortAscending: ': Sorted ascending. Activate to sort descending.',
-      sortNone: ': Not sorted. Activate to sort ascending.',
+      sortDescending: 'Kahanevalt sorteeritud.',
+      sortAscending: 'Kasvavalt sorteeritud.',
+      sortNone: 'Ei ole sorteeritud.',
+      activateNone: 'Vajuta uuesti sorteerimise eemaldamiseks.',
+      activateDescending: 'Vajuta uuesti, et sorteerida kahanevalt.',
+      activateAscending: 'Vajuta kasvavalt sorteerimiseks.',
     },
+    sortBy: 'Sorteerimise alus',
   },
   dataFooter: {
     itemsPerPageText: 'Kirjeid leheküljel:',
@@ -20,20 +24,41 @@ export default {
     prevPage: 'Eelmine lehekülg',
     firstPage: 'Esimene lehekülg',
     lastPage: 'Viimane lehekülg',
+    pageText: '{0}-{1} {2}st',
   },
   datePicker: {
     itemsSelected: '{0} valitud',
+    nextMonthAriaLabel: 'Järgmine kuu',
+    nextYearAriaLabel: 'Järgmine aasta',
+    prevMonthAriaLabel: 'Eelmine kuu',
+    prevYearAriaLabel: 'Eelmine aasta',
   },
   noDataText: 'Andmed puuduvad',
   carousel: {
     prev: 'Eelmine visuaalne',
     next: 'Järgmine visuaalne',
+    ariaLabel: {
+      delimiter: 'Carousel slide {0} of {1}',
+    },
   },
   calendar: {
     moreEvents: '{0} veel',
   },
   fileInput: {
-    counter: '{0} files',
-    counterSize: '{0} files ({1} in total)',
+    counter: '{0} faili',
+    counterSize: '{0} faili (kokku {1})',
+  },
+  timePicker: {
+    am: 'AM',
+    pm: 'PM',
+  },
+  pagination: {
+    ariaLabel: {
+      wrapper: 'Pagination Navigation',
+      next: 'Järgmine lehekülg',
+      previous: 'Eelmine lehekülg',
+      page: 'Mine lehele {0}',
+      currentPage: 'Praegune leht, leht {0}',
+    },
   },
 }

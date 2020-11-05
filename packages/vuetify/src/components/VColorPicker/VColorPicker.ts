@@ -9,15 +9,18 @@ import VColorPickerEdit, { Mode, modes } from './VColorPickerEdit'
 import VColorPickerSwatches from './VColorPickerSwatches'
 
 // Helpers
-import { VColorPickerColor, parseColor, fromRGBA, extractColor } from './util'
+import { VColorPickerColor, parseColor, fromRGBA, extractColor, hasAlpha } from './util'
 import mixins from '../../util/mixins'
+import { deepEqual } from '../../util/helpers'
+
+// Mixins
+import Elevatable from '../../mixins/elevatable'
 import Themeable from '../../mixins/themeable'
 
 // Types
-import { VNode } from 'vue'
-import { PropValidator } from 'vue/types/options'
+import { VNode, PropType } from 'vue'
 
-export default mixins(Themeable).extend({
+export default mixins(Elevatable, Themeable).extend({
   name: 'v-color-picker',
 
   props: {
@@ -40,7 +43,7 @@ export default mixins(Themeable).extend({
       validator: (v: string) => Object.keys(modes).includes(v),
     },
     showSwatches: Boolean,
-    swatches: Array as PropValidator<string[][]>,
+    swatches: Array as PropType<string[][]>,
     swatchesMaxHeight: {
       type: [Number, String],
       default: 150,
@@ -58,6 +61,14 @@ export default mixins(Themeable).extend({
     internalValue: fromRGBA({ r: 255, g: 0, b: 0, a: 1 }),
   }),
 
+  computed: {
+    hideAlpha (): boolean {
+      if (!this.value) return false
+
+      return !hasAlpha(this.value)
+    },
+  },
+
   watch: {
     value: {
       handler (color: any) {
@@ -72,7 +83,7 @@ export default mixins(Themeable).extend({
       this.internalValue = color
       const value = extractColor(this.internalValue, this.value)
 
-      if (value !== this.value) {
+      if (!deepEqual(value, this.value)) {
         this.$emit('input', value)
         this.$emit('update:color', this.internalValue)
       }
@@ -104,6 +115,7 @@ export default mixins(Themeable).extend({
         props: {
           color: this.internalValue,
           disabled: this.disabled,
+          hideAlpha: this.hideAlpha,
           hideModeSwitch: this.hideModeSwitch,
           mode: this.mode,
         },
@@ -118,6 +130,7 @@ export default mixins(Themeable).extend({
         props: {
           color: this.internalValue,
           disabled: this.disabled,
+          hideAlpha: this.hideAlpha,
         },
         on: {
           'update:color': this.updateColor,
@@ -146,6 +159,7 @@ export default mixins(Themeable).extend({
       class: {
         'v-color-picker--flat': this.flat,
         ...this.themeClasses,
+        ...this.elevationClasses,
       },
       props: {
         maxWidth: this.width,

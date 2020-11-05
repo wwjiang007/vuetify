@@ -1,8 +1,8 @@
 <template>
   <v-app>
-    <v-content>
+    <v-main>
       <playground></playground>
-    </v-content>
+    </v-main>
   </v-app>
 </template>
 
@@ -11,7 +11,7 @@
 
   export default {
     components: {
-      Playground
-    }
+      Playground,
+    },
   }
 </script>

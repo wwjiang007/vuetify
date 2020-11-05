@@ -1,20 +1,26 @@
-import { VNode, VNodeChildren } from 'vue'
-
 // Components
 import { VData } from '../VData'
 import VDataFooter from './VDataFooter'
 
 // Mixins
+import Mobile from '../../mixins/mobile'
 import Themeable from '../../mixins/themeable'
 
 // Helpers
-import { deepEqual, getObjectValueByPath, getPrefixedScopedSlots, getSlot } from '../../util/helpers'
-import { DataProps } from '../VData/VData'
-import { PropValidator } from 'vue/types/options'
+import mixins from '../../util/mixins'
+import { deepEqual, getObjectValueByPath, getPrefixedScopedSlots, getSlot, camelizeObjectKeys } from '../../util/helpers'
 import { breaking, removed } from '../../util/console'
 
+// Types
+import { VNode, VNodeChildren } from 'vue'
+import { PropValidator } from 'vue/types/options'
+import { DataItemProps, DataScopeProps } from 'vuetify/types'
+
 /* @vue/component */
-export default Themeable.extend({
+export default mixins(
+  Mobile,
+  Themeable
+).extend({
   name: 'v-data-iterator',
 
   props: {
@@ -32,6 +38,10 @@ export default Themeable.extend({
       type: Array,
       default: () => [],
     } as PropValidator<any[]>,
+    mobileBreakpoint: {
+      ...Mobile.options.props.mobileBreakpoint,
+      default: 600,
+    },
     singleExpand: Boolean,
     loading: [Boolean, String],
     noResultsText: {
@@ -48,6 +58,10 @@ export default Themeable.extend({
     },
     hideDefaultFooter: Boolean,
     footerProps: Object,
+    selectableKey: {
+      type: String,
+      default: 'isSelectable',
+    },
   },
 
   data: () => ({
@@ -58,10 +72,16 @@ export default Themeable.extend({
 
   computed: {
     everyItem (): boolean {
-      return !!this.internalCurrentItems.length && this.internalCurrentItems.every((i: any) => this.isSelected(i))
+      return !!this.selectableItems.length && this.selectableItems.every((i: any) => this.isSelected(i))
     },
     someItems (): boolean {
-      return this.internalCurrentItems.some((i: any) => this.isSelected(i))
+      return this.selectableItems.some((i: any) => this.isSelected(i))
+    },
+    sanitizedFooterProps (): Record<string, any> {
+      return camelizeObjectKeys(this.footerProps)
+    },
+    selectableItems (): any[] {
+      return this.internalCurrentItems.filter(item => this.isSelectable(item))
     },
   },
 
@@ -132,24 +152,39 @@ export default Themeable.extend({
     toggleSelectAll (value: boolean): void {
       const selection = Object.assign({}, this.selection)
 
-      this.internalCurrentItems.forEach((item: any) => {
+      for (let i = 0; i < this.selectableItems.length; i++) {
+        const item = this.selectableItems[i]
+
+        if (!this.isSelectable(item)) continue
+
         const key = getObjectValueByPath(item, this.itemKey)
         if (value) selection[key] = item
         else delete selection[key]
-      })
+      }
 
       this.selection = selection
+      this.$emit('toggle-select-all', { items: this.internalCurrentItems, value })
+    },
+    isSelectable (item: any): boolean {
+      return getObjectValueByPath(item, this.selectableKey) !== false
     },
     isSelected (item: any): boolean {
       return !!this.selection[getObjectValueByPath(item, this.itemKey)] || false
     },
     select (item: any, value = true, emit = true): void {
+      if (!this.isSelectable(item)) return
+
       const selection = this.singleSelect ? {} : Object.assign({}, this.selection)
       const key = getObjectValueByPath(item, this.itemKey)
 
       if (value) selection[key] = item
       else delete selection[key]
 
+      if (this.singleSelect && emit) {
+        const keys = Object.keys(this.selection)
+        const old = keys.length && getObjectValueByPath(this.selection[keys[0]], this.itemKey)
+        old && old !== key && this.$emit('item-selected', { item: this.selection[old], value: false })
+      }
       this.selection = selection
       emit && this.$emit('item-selected', { item, value })
     },
@@ -166,36 +201,35 @@ export default Themeable.extend({
       this.expansion = expansion
       this.$emit('item-expanded', { item, value })
     },
-    createItemProps (item: any) {
-      const props = {
+    createItemProps (item: any): DataItemProps {
+      return {
         item,
         select: (v: boolean) => this.select(item, v),
         isSelected: this.isSelected(item),
         expand: (v: boolean) => this.expand(item, v),
         isExpanded: this.isExpanded(item),
+        isMobile: this.isMobile,
       }
-
-      return props
     },
     genEmptyWrapper (content: VNodeChildren) {
       return this.$createElement('div', content)
     },
-    genEmpty (itemsLength: number) {
-      if (itemsLength <= 0 && this.loading) {
-        const loading = this.$slots['loading'] || this.$vuetify.lang.t(this.loadingText)
+    genEmpty (originalItemsLength: number, filteredItemsLength: number) {
+      if (originalItemsLength === 0 && this.loading) {
+        const loading = this.$slots.loading || this.$vuetify.lang.t(this.loadingText)
         return this.genEmptyWrapper(loading)
-      } else if (itemsLength <= 0 && !this.items.length) {
+      } else if (originalItemsLength === 0) {
         const noData = this.$slots['no-data'] || this.$vuetify.lang.t(this.noDataText)
         return this.genEmptyWrapper(noData)
-      } else if (itemsLength <= 0 && this.search) {
+      } else if (filteredItemsLength === 0) {
         const noResults = this.$slots['no-results'] || this.$vuetify.lang.t(this.noResultsText)
         return this.genEmptyWrapper(noResults)
       }
 
       return null
     },
-    genItems (props: DataProps) {
-      const empty = this.genEmpty(props.pagination.itemsLength)
+    genItems (props: DataScopeProps) {
+      const empty = this.genEmpty(props.originalItemsLength, props.pagination.itemsLength)
       if (empty) return [empty]
 
       if (this.$scopedSlots.default) {
@@ -214,12 +248,12 @@ export default Themeable.extend({
 
       return []
     },
-    genFooter (props: DataProps) {
+    genFooter (props: DataScopeProps) {
       if (this.hideDefaultFooter) return null
 
       const data = {
         props: {
-          ...this.footerProps,
+          ...this.sanitizedFooterProps,
           options: props.options,
           pagination: props.pagination,
         },
@@ -270,6 +304,7 @@ export default Themeable.extend({
           this.internalCurrentItems = v
           this.$emit('current-items', v)
         },
+        'page-count': (v: number) => this.$emit('page-count', v),
       },
       scopedSlots: {
         default: this.genDefaultScopedSlot,

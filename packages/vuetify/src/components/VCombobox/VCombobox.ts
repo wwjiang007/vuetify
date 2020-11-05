@@ -19,7 +19,7 @@ export default VAutocomplete.extend({
     delimiters: {
       type: Array,
       default: () => ([]),
-    } as PropValidator<any[]>,
+    } as PropValidator<string[]>,
     returnObject: {
       type: Boolean,
       default: true,
@@ -31,7 +31,7 @@ export default VAutocomplete.extend({
   }),
 
   computed: {
-    counterValue (): number {
+    computedCounterValue (): number {
       return this.multiple
         ? this.selectedItems.length
         : (this.internalSearch || '').toString().length
@@ -66,6 +66,14 @@ export default VAutocomplete.extend({
 
       this.updateMenuDimensions()
     },
+    genInput () {
+      const input = VAutocomplete.options.methods.genInput.call(this)
+
+      delete input.data!.attrs!.name
+      input.data!.on!.paste = this.onPaste
+
+      return input
+    },
     genChipSelection (item: object, index: number) {
       const chip = VSelect.options.methods.genChipSelection.call(this, item, index)
 
@@ -92,12 +100,10 @@ export default VAutocomplete.extend({
     // to overwrite removal in v-autocomplete
     onEnterDown (e: Event) {
       e.preventDefault()
+      // If has menu index, let v-select-list handle
+      if (this.getMenuIndex() > -1) return
 
-      this.$nextTick(() => {
-        // If has menu index, let v-select-list handle
-        if (this.getMenuIndex() > -1) return
-        this.updateSelf()
-      })
+      this.$nextTick(this.updateSelf)
     },
     onFilteredItemsChanged (val: never[], oldVal: never[]) {
       if (!this.autoSelectFirst) return
@@ -147,7 +153,7 @@ export default VAutocomplete.extend({
       if (this.editingIndex > -1) {
         this.updateEditing()
       } else {
-        VSelect.options.methods.selectItem.call(this, item)
+        VAutocomplete.options.methods.selectItem.call(this, item)
       }
     },
     setSelectedItems () {
@@ -160,7 +166,7 @@ export default VAutocomplete.extend({
       }
     },
     setValue (value?: any) {
-      VSelect.options.methods.setValue.call(this, value || this.internalSearch)
+      VSelect.options.methods.setValue.call(this, value ?? this.internalSearch)
     },
     updateEditing () {
       const value = this.internalValue.slice()
@@ -183,7 +189,7 @@ export default VAutocomplete.extend({
 
       // Reset search if using slot
       // to avoid a double input
-      if (isUsingSlot) this.internalSearch = undefined
+      if (isUsingSlot) this.internalSearch = null
     },
     updateSelf () {
       this.multiple ? this.updateTags() : this.updateCombobox()
@@ -220,6 +226,15 @@ export default VAutocomplete.extend({
 
       this.selectItem(this.internalSearch)
       this.internalSearch = null
+    },
+    onPaste (event: ClipboardEvent) {
+      if (!this.multiple || this.searchIsDirty) return
+
+      const pastedItemText = event.clipboardData?.getData('text/vnd.vuetify.autocomplete.item+plain')
+      if (pastedItemText && this.findExistingIndex(pastedItemText as any) === -1) {
+        event.preventDefault()
+        VSelect.options.methods.selectItem.call(this, pastedItemText as any)
+      }
     },
   },
 })

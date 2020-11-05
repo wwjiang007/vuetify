@@ -8,16 +8,16 @@ import VSlider from '../VSlider/VSlider'
 import { RGBtoCSS, RGBAtoCSS } from '../../util/colorUtils'
 
 // Types
-import Vue, { VNode, VNodeData } from 'vue'
-import { PropValidator } from 'vue/types/options'
+import Vue, { VNode, VNodeData, PropType } from 'vue'
 import { VColorPickerColor, fromHSVA } from './util'
 
 export default Vue.extend({
   name: 'v-color-picker-preview',
 
   props: {
-    color: Object as PropValidator<VColorPickerColor>,
+    color: Object as PropType<VColorPickerColor>,
     disabled: Boolean,
+    hideAlpha: Boolean,
   },
 
   methods: {
@@ -33,9 +33,9 @@ export default Vue.extend({
           max: 1,
         },
         style: {
-          backgroundImage: !this.disabled
-            ? `linear-gradient(to right, transparent, ${RGBtoCSS(this.color.rgba)})`
-            : undefined,
+          backgroundImage: this.disabled
+            ? undefined
+            : `linear-gradient(to ${this.$vuetify.rtl ? 'left' : 'right'}, transparent, ${RGBtoCSS(this.color.rgba)})`,
         },
         on: {
           input: (val: number) => this.color.alpha !== val && this.$emit('update:color', fromHSVA({ ...this.color.hsva, a: val })),
@@ -47,7 +47,7 @@ export default Vue.extend({
         staticClass: 'v-color-picker__sliders',
       }, [
         this.genHue(),
-        this.genAlpha(),
+        !this.hideAlpha && this.genAlpha(),
       ])
     },
     genDot (): VNode {
@@ -92,6 +92,9 @@ export default Vue.extend({
   render (h): VNode {
     return h('div', {
       staticClass: 'v-color-picker__preview',
+      class: {
+        'v-color-picker__preview--hide-alpha': this.hideAlpha,
+      },
     }, [
       this.genDot(),
       this.genSliders(),

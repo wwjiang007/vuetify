@@ -1,12 +1,17 @@
 // Styles
 import './VMenu.sass'
 
+// Components
+import { VThemeProvider } from '../VThemeProvider'
+
 // Mixins
+import Activatable from '../../mixins/activatable'
 import Delayable from '../../mixins/delayable'
 import Dependent from '../../mixins/dependent'
 import Detachable from '../../mixins/detachable'
 import Menuable from '../../mixins/menuable'
 import Returnable from '../../mixins/returnable'
+import Roundable from '../../mixins/roundable'
 import Toggleable from '../../mixins/toggleable'
 import Themeable from '../../mixins/themeable'
 
@@ -16,8 +21,11 @@ import Resize from '../../directives/resize'
 
 // Utilities
 import mixins from '../../util/mixins'
-import { convertToUnit, keyCodes } from '../../util/helpers'
-import ThemeProvider from '../../util/ThemeProvider'
+import { removed } from '../../util/console'
+import {
+  convertToUnit,
+  keyCodes,
+} from '../../util/helpers'
 
 // Types
 import { VNode, VNodeDirective, VNodeData } from 'vue'
@@ -28,6 +36,7 @@ const baseMixins = mixins(
   Detachable,
   Menuable,
   Returnable,
+  Roundable,
   Toggleable,
   Themeable
 )
@@ -36,17 +45,17 @@ const baseMixins = mixins(
 export default baseMixins.extend({
   name: 'v-menu',
 
+  directives: {
+    ClickOutside,
+    Resize,
+  },
+
   provide (): object {
     return {
       isInMenu: true,
       // Pass theme through to default slot
       theme: this.theme,
     }
-  },
-
-  directives: {
-    ClickOutside,
-    Resize,
   },
 
   props: {
@@ -61,7 +70,6 @@ export default baseMixins.extend({
     },
     disabled: Boolean,
     disableKeys: Boolean,
-    fullWidth: Boolean,
     maxHeight: {
       type: [Number, String],
       default: 'auto',
@@ -179,6 +187,13 @@ export default baseMixins.extend({
     },
   },
 
+  created () {
+    /* istanbul ignore next */
+    if (this.$attrs.hasOwnProperty('full-width')) {
+      removed('full-width', this)
+    }
+  },
+
   mounted () {
     this.isActive && this.callActivate()
   },
@@ -253,8 +268,21 @@ export default baseMixins.extend({
       const target = e.target as HTMLElement
 
       return this.isActive &&
+        !this._isDestroyed &&
         this.closeOnClick &&
         !this.$refs.content.contains(target)
+    },
+    genActivatorAttributes () {
+      const attributes = Activatable.options.methods.genActivatorAttributes.call(this)
+
+      if (this.activeTile && this.activeTile.id) {
+        return {
+          ...attributes,
+          'aria-activedescendant': this.activeTile.id,
+        }
+      }
+
+      return attributes
     },
     genActivatorListeners () {
       const listeners = Menuable.options.methods.genActivatorListeners.call(this)
@@ -266,13 +294,15 @@ export default baseMixins.extend({
       return listeners
     },
     genTransition (): VNode {
-      if (!this.transition) return this.genContent()
+      const content = this.genContent()
+
+      if (!this.transition) return content
 
       return this.$createElement('transition', {
         props: {
           name: this.transition,
         },
-      }, [this.genContent()])
+      }, [content])
     },
     genDirectives (): VNodeDirective[] {
       const directives: VNodeDirective[] = [{
@@ -284,12 +314,12 @@ export default baseMixins.extend({
       if (!this.openOnHover && this.closeOnClick) {
         directives.push({
           name: 'click-outside',
-          value: () => { this.isActive = false },
-          args: {
+          value: {
+            handler: () => { this.isActive = false },
             closeConditional: this.closeConditional,
             include: () => [this.$el, ...this.getOpenDependentElements()],
           },
-        } as any)
+        })
       }
 
       return directives
@@ -303,6 +333,7 @@ export default baseMixins.extend({
         staticClass: 'v-menu__content',
         class: {
           ...this.rootThemeClasses,
+          ...this.roundedClasses,
           'v-menu__content--auto': this.auto,
           'v-menu__content--fixed': this.activatorFixed,
           menuable__content__active: this.isActive,
@@ -313,8 +344,6 @@ export default baseMixins.extend({
         ref: 'content',
         on: {
           click: (e: Event) => {
-            e.stopPropagation()
-
             const target = e.target as HTMLElement
 
             if (target.getAttribute('disabled')) return
@@ -323,6 +352,11 @@ export default baseMixins.extend({
           keydown: this.onKeyDown,
         },
       } as VNodeData
+
+      if (this.$listeners.scroll) {
+        options.on = options.on || {}
+        options.on.scroll = this.$listeners.scroll
+      }
 
       if (!this.disabled && this.openOnHover) {
         options.on = options.on || {}
@@ -334,13 +368,11 @@ export default baseMixins.extend({
         options.on.mouseleave = this.mouseLeaveHandler
       }
 
-      return this.$createElement(
-        'div',
-        options,
-        this.showLazyContent(this.getContentSlot())
-      )
+      return this.$createElement('div', options, this.getContentSlot())
     },
     getTiles () {
+      if (!this.$refs.content) return
+
       this.tiles = Array.from(this.$refs.content.querySelectorAll('.v-list-item'))
     },
     mouseEnterHandler () {
@@ -431,7 +463,10 @@ export default baseMixins.extend({
     const data = {
       staticClass: 'v-menu',
       class: {
-        'v-menu--inline': !this.fullWidth && (this.$slots.activator || this.$scopedSlots.activator),
+        'v-menu--attached':
+          this.attach === '' ||
+          this.attach === true ||
+          this.attach === 'attach',
       },
       directives: [{
         arg: '500',
@@ -441,14 +476,16 @@ export default baseMixins.extend({
     }
 
     return h('div', data, [
-      this.genActivator(),
-      this.$createElement(ThemeProvider, {
-        props: {
-          root: true,
-          light: this.light,
-          dark: this.dark,
-        },
-      }, [this.genTransition()]),
+      !this.activator && this.genActivator(),
+      this.showLazyContent(() => [
+        this.$createElement(VThemeProvider, {
+          props: {
+            root: true,
+            light: this.light,
+            dark: this.dark,
+          },
+        }, [this.genTransition()]),
+      ]),
     ])
   },
 })

@@ -1,10 +1,17 @@
 import Vue from 'vue'
+import { Lang } from '../../../services/lang'
 import VTimePicker, { SelectingTimes } from '../VTimePicker'
 import {
   mount,
   MountOptions,
   Wrapper,
 } from '@vue/test-utils'
+
+import { preset } from '../../../presets/default'
+
+Vue.prototype.$vuetify = {
+  lang: new Lang(preset),
+}
 
 describe('VTimePicker.ts', () => {
   type Instance = InstanceType<typeof VTimePicker>
@@ -53,6 +60,32 @@ describe('VTimePicker.ts', () => {
       var wrapper = mountFunction({
         propsData: {
           disabled: true,
+          value: '09:12:34',
+          useSeconds: useSecondsValue,
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+      expect(wrapper.html()).toMatchSnapshot()
+    })
+
+    it('should render flat component' + useSecondsDesc, async () => {
+      var wrapper = mountFunction({
+        propsData: {
+          flat: true,
+          value: '09:12:34',
+          useSeconds: useSecondsValue,
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+      expect(wrapper.html()).toMatchSnapshot()
+    })
+
+    it('should render component with elevation' + useSecondsDesc, async () => {
+      var wrapper = mountFunction({
+        propsData: {
+          elevation: 15,
           value: '09:12:34',
           useSeconds: useSecondsValue,
         },

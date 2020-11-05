@@ -1,106 +1,92 @@
-import Vue from 'vue'
+// Imports
 import Router from 'vue-router'
-import VueAnalytics from 'vue-analytics'
 import scrollBehavior from './scroll-behavior'
+import Vue from 'vue'
+import VueGtag from 'vue-gtag'
+import { localeLookup } from '@/i18n/util'
 import redirects from './301.json'
-import languages from '@/data/i18n/languages.json'
 
+// Globals
+import { IS_SERVER } from '@/util/globals'
+
+import {
+  abort,
+  locale,
+  layout,
+  route,
+  rpath,
+  redirect,
+} from '@/util/routes'
+
+// Setup
 Vue.use(Router)
 
-// language regex:
-// /^[a-z]{2,3}(?:-[a-zA-Z]{4})?(?:-[A-Z]{2,3})?$/
-// /^[a-z]{2,3}|[a-z]{2,3}-[a-zA-Z]{4}|[a-z]{2,3}-[A-Z]{2,3}$/
-const languageRegex = /^\/([a-z]{2,3}|[a-z]{2,3}-[a-zA-Z]{4}|[a-z]{2,3}-[A-Z]{2,3})(?:\/.*)?$/
-const fallbackLocale = languages.find(lang => lang.fallback === true).locale
-
-function getLanguageCookie () {
-  if (typeof document === 'undefined') return
-  return new Map(document.cookie.split('; ').map(c => c.split('='))).get('currentLanguage')
-}
-
-export function createRouter () {
+export function createRouter (vuetify, store, i18n) {
+  const loadedLocales = ['en']
   const router = new Router({
-    base: __dirname,
     mode: 'history',
-    scrollBehavior,
+    base: process.env.BASE_URL,
+    scrollBehavior: (...args) => scrollBehavior(vuetify, store, ...args),
     routes: [
-      {
-        path: '/:lang([a-z]{2,3}|[a-z]{2,3}-[a-zA-Z]{4}|[a-z]{2,3}-[A-Z]{2,3})',
-        component: () => import(
-          /* webpackChunkName: "root" */
-          '@/views/Root.vue'
-        ),
-        props: route => ({ lang: route.params.lang }),
-        children: [
-          ...Object.keys(redirects).map(k => ({
-            path: k.replace(/^\//, ''),
-            redirect: () => redirects[k].replace(/^\//, ''),
-          })),
-          {
-            path: '',
-            name: 'home/Home',
-            component: () => import(
-              /* webpackChunkName: "home" */
-              '@/pages/home/Page.vue'
-            ),
-          },
-          {
-            path: 'examples/layouts/:page',
-            name: 'Layouts',
-            props: true,
-            component: () => import(
-              /* webpackChunkName: "layouts" */
-              '@/views/Layouts.vue'
-            ),
-          },
-          {
-            path: ':namespace/:page/:section?',
-            name: 'Documentation',
-            props: route => ({
-              namespace: route.params.namespace,
-              page: route.params.page,
-              lang: route.params.lang,
-            }),
-            component: () => import(
-              /* webpackChunkName: "documentation" */
-              '@/pages/documentation/Page.vue'
-            ),
-          },
-          {
-            path: '*',
-            redirect: to => {
-              let lang = `/${getLanguageCookie() || fallbackLocale}`
-              if (!languageRegex.test(lang)) lang = `/${fallbackLocale}`
-
-              return `${lang}`
-            },
-          },
-        ],
-      },
-      {
-        path: '*',
-        redirect: to => {
-          let lang = `/${getLanguageCookie() || fallbackLocale}`
-          if (!languageRegex.test(lang)) lang = `/${fallbackLocale}`
-
-          return `${lang}/404`
-        },
-      },
+      locale([
+        ...Object.keys(redirects).map(k => ({
+          path: k.replace(/^\//, ''),
+          redirect: () => redirects[k].replace(/^\//, ''),
+        })),
+        layout('Home', [route('Home')]),
+        layout('Default', [route('Documentation')], ':category/:page/'),
+        layout('Wireframe', [route('Wireframes', 'examples/wireframes/:wireframe/')]),
+        layout('Default', [abort()]),
+      ]),
+      // Redirect for language fallback
+      redirect('/:locale(%s)/*', to => {
+        // fallbackLocale regex is too aggressive and catches 'api' as well
+        if (to.params.locale === 'api') return to.path
+        return to.params.pathMatch
+      }),
+      // The previous one doesn't match if there's no slash after the language code
+      redirect('/:locale(%s)'),
+      redirect(),
     ],
   })
 
-  Vue.use(VueAnalytics, {
-    id: 'UA-75262397-3',
-    router,
-    autoTracking: {
-      page: process.env.NODE_ENV !== 'development',
-    },
-    debug: process.env.DEBUG ? {
-      enabled: true,
-      trace: false,
-      sendHitTask: true,
-    } : false,
+  function loadLocale (locale) {
+    if (
+      !locale ||
+      i18n.locale === locale ||
+      loadedLocales.includes(locale)
+    ) return Promise.resolve()
+
+    const messagesFile = localeLookup(locale)
+
+    return import(
+      /* webpackChunkName: "locale-[request]" */
+      `@/i18n/messages/${messagesFile}.json`
+    ).then(messages => {
+      i18n.setLocaleMessage(locale, messages.default)
+      loadedLocales.push(locale)
+      i18n.locale = locale
+    })
+  }
+
+  router.beforeEach(({ path }, from, next) => {
+    return path.endsWith('/') ? next() : next(rpath(path))
   })
+
+  router.beforeEach((to, _, next) => {
+    loadLocale(to.params.locale).then(() => next())
+  })
+
+  router.afterEach((to, from) => {
+    if (to.path !== from.path && store.state.pwa.sw.update) {
+      store.dispatch('pwa/update')
+    }
+  })
+
+  Vue.use(VueGtag, {
+    bootstrap: !IS_SERVER,
+    config: { id: 'UA-75262397-3' },
+  }, router)
 
   return router
 }

@@ -15,6 +15,11 @@ describe('VProgressLinear.ts', () => {
   beforeEach(() => {
     mountFunction = (options = {}) => {
       return mount(VProgressLinear, {
+        mocks: {
+          $vuetify: {
+            rtl: false,
+          },
+        },
         ...options,
       })
     }
@@ -67,6 +72,46 @@ describe('VProgressLinear.ts', () => {
       propsData: {
         value: 33,
         active: false,
+      },
+    })
+
+    expect(wrapper.html()).toMatchSnapshot()
+  })
+
+  it('should render component in RTL mode', () => {
+    const wrapper = mountFunction({
+      propsData: {
+        value: 33,
+      },
+      mocks: {
+        $vuetify: {
+          rtl: true,
+        },
+      },
+    })
+
+    expect(wrapper.html()).toMatchSnapshot()
+  })
+
+  it('should render reversed component', () => {
+    const wrapper = mountFunction({
+      propsData: {
+        reverse: true,
+        value: 33,
+      },
+    })
+
+    expect(wrapper.html()).toMatchSnapshot()
+  })
+
+  it('should render reverse component in RTL mode', () => {
+    const wrapper = mountFunction({
+      propsData: {
+        reverse: true,
+        value: 33,
+      },
+      mocks: {
+        $vuetify: { rtl: true },
       },
     })
 
@@ -146,6 +191,7 @@ describe('VProgressLinear.ts', () => {
     const wrapper = mountFunction({
       propsData: {
         indeterminate: true,
+        query: true,
       },
     })
 

@@ -83,7 +83,7 @@ describe('VCheckbox.ts', () => { // eslint-disable-line max-statements
     expect(change).toHaveBeenCalled()
   })
 
-  it('should render role and aria-checked attributes on input group', () => {
+  it('should render role and aria-checked attributes on input group', async () => {
     const wrapper = mountFunction({
       propsData: {
         inputValue: false,
@@ -99,6 +99,7 @@ describe('VCheckbox.ts', () => { // eslint-disable-line max-statements
     expect(input.element.getAttribute('aria-checked')).toBe('true')
 
     wrapper.setProps({ indeterminate: true })
+    await wrapper.vm.$nextTick()
     expect(input.element.getAttribute('aria-checked')).toBe('mixed')
   })
 
@@ -355,5 +356,13 @@ describe('VCheckbox.ts', () => { // eslint-disable-line max-statements
     const input = wrapper.find('input')
 
     expect(input.html()).toMatchSnapshot()
+  })
+
+  it('should be render colored checkbox', () => {
+    const wrapper = mountFunction({
+      propsData: { color: 'yellow' },
+    })
+
+    expect(wrapper.html()).toMatchSnapshot()
   })
 })

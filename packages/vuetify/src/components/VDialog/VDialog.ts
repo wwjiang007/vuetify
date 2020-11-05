@@ -1,4 +1,8 @@
+// Styles
 import './VDialog.sass'
+
+// Components
+import { VThemeProvider } from '../VThemeProvider'
 
 // Mixins
 import Activatable from '../../mixins/activatable'
@@ -13,12 +17,15 @@ import Toggleable from '../../mixins/toggleable'
 import ClickOutside from '../../directives/click-outside'
 
 // Helpers
-import { convertToUnit, keyCodes } from '../../util/helpers'
-import ThemeProvider from '../../util/ThemeProvider'
 import mixins from '../../util/mixins'
+import { removed } from '../../util/console'
+import {
+  convertToUnit,
+  keyCodes,
+} from '../../util/helpers'
 
 // Types
-import { VNode } from 'vue'
+import { VNode, VNodeData } from 'vue'
 
 const baseMixins = mixins(
   Activatable,
@@ -34,15 +41,12 @@ const baseMixins = mixins(
 export default baseMixins.extend({
   name: 'v-dialog',
 
-  directives: {
-    ClickOutside,
-  },
+  directives: { ClickOutside },
 
   props: {
     dark: Boolean,
     disabled: Boolean,
     fullscreen: Boolean,
-    fullWidth: Boolean,
     light: Boolean,
     maxWidth: {
       type: [String, Number],
@@ -127,6 +131,13 @@ export default baseMixins.extend({
     },
   },
 
+  created () {
+    /* istanbul ignore next */
+    if (this.$attrs.hasOwnProperty('full-width')) {
+      removed('full-width', this)
+    }
+  },
+
   beforeMount () {
     this.$nextTick(() => {
       this.isBooted = this.isActive
@@ -151,27 +162,16 @@ export default baseMixins.extend({
     },
     closeConditional (e: Event) {
       const target = e.target as HTMLElement
-      // If the dialog content contains
-      // the click event, or if the
-      // dialog is not active
-      if (!this.isActive || this.$refs.content.contains(target)) return false
-
-      // If we made it here, the click is outside
-      // and is active. If persistent, and the
-      // click is on the overlay, animate
-      this.$emit('click:outside')
-
-      if (this.persistent) {
-        if (!this.noClickAnimation &&
-          this.overlay === target
-        ) this.animateClick()
-
-        return false
-      }
-
-      // close dialog if !persistent, clicked outside and we're the topmost dialog.
-      // Since this should only be called in a capture event (bottom up), we shouldn't need to stop propagation
-      return this.activeZIndex >= this.getMaxZIndex()
+      // Ignore the click if the dialog is closed or destroyed,
+      // if it was on an element inside the content,
+      // if it was dragged onto the overlay (#6969),
+      // or if this isn't the topmost dialog (#9907)
+      return !(
+        this._isDestroyed ||
+        !this.isActive ||
+        this.$refs.content.contains(target) ||
+        (this.overlay && target && !this.overlay.$el.contains(target))
+      ) && this.activeZIndex >= this.getMaxZIndex()
     },
     hideScroll () {
       if (this.fullscreen) {
@@ -182,14 +182,25 @@ export default baseMixins.extend({
     },
     show () {
       !this.fullscreen && !this.hideOverlay && this.genOverlay()
-      this.$refs.content.focus()
-      this.bind()
+      this.$nextTick(() => {
+        this.$refs.content.focus()
+        this.bind()
+      })
     },
     bind () {
       window.addEventListener('focusin', this.onFocusin)
     },
     unbind () {
       window.removeEventListener('focusin', this.onFocusin)
+    },
+    onClickOutside (e: Event) {
+      this.$emit('click:outside', e)
+
+      if (this.persistent) {
+        this.noClickAnimation || this.animateClick()
+      } else {
+        this.isActive = false
+      }
     },
     onKeydown (e: KeyboardEvent) {
       if (e.keyCode === keyCodes.esc && !this.getOpenDependents().length) {
@@ -203,6 +214,8 @@ export default baseMixins.extend({
       }
       this.$emit('keydown', e)
     },
+    // On focus change, wrap focus to stay inside the dialog
+    // https://github.com/vuetifyjs/vuetify/issues/6892
     onFocusin (e: Event) {
       if (!e || !this.retainFocus) return
 
@@ -222,80 +235,91 @@ export default baseMixins.extend({
       ) {
         // Find and focus the first available element inside the dialog
         const focusable = this.$refs.content.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-        focusable.length && (focusable[0] as HTMLElement).focus()
+        const el = [...focusable].find(el => !el.hasAttribute('disabled')) as HTMLElement | undefined
+        el && el.focus()
       }
+    },
+    genContent () {
+      return this.showLazyContent(() => [
+        this.$createElement(VThemeProvider, {
+          props: {
+            root: true,
+            light: this.light,
+            dark: this.dark,
+          },
+        }, [
+          this.$createElement('div', {
+            class: this.contentClasses,
+            attrs: {
+              role: 'document',
+              tabindex: this.isActive ? 0 : undefined,
+              ...this.getScopeIdAttrs(),
+            },
+            on: { keydown: this.onKeydown },
+            style: { zIndex: this.activeZIndex },
+            ref: 'content',
+          }, [this.genTransition()]),
+        ]),
+      ])
+    },
+    genTransition () {
+      const content = this.genInnerContent()
+
+      if (!this.transition) return content
+
+      return this.$createElement('transition', {
+        props: {
+          name: this.transition,
+          origin: this.origin,
+          appear: true,
+        },
+      }, [content])
+    },
+    genInnerContent () {
+      const data: VNodeData = {
+        class: this.classes,
+        ref: 'dialog',
+        directives: [
+          {
+            name: 'click-outside',
+            value: {
+              handler: this.onClickOutside,
+              closeConditional: this.closeConditional,
+              include: this.getOpenDependentElements,
+            },
+          },
+          { name: 'show', value: this.isActive },
+        ],
+        style: {
+          transformOrigin: this.origin,
+        },
+      }
+
+      if (!this.fullscreen) {
+        data.style = {
+          ...data.style as object,
+          maxWidth: this.maxWidth === 'none' ? undefined : convertToUnit(this.maxWidth),
+          width: this.width === 'auto' ? undefined : convertToUnit(this.width),
+        }
+      }
+
+      return this.$createElement('div', data, this.getContentSlot())
     },
   },
 
   render (h): VNode {
-    const children = []
-    const data = {
-      class: this.classes,
-      ref: 'dialog',
-      directives: [
-        {
-          name: 'click-outside',
-          value: () => { this.isActive = false },
-          args: {
-            closeConditional: this.closeConditional,
-            include: this.getOpenDependentElements,
-          },
-        },
-        { name: 'show', value: this.isActive },
-      ],
-      on: {
-        click: (e: Event) => { e.stopPropagation() },
-      },
-      style: {},
-    }
-
-    if (!this.fullscreen) {
-      data.style = {
-        maxWidth: this.maxWidth === 'none' ? undefined : convertToUnit(this.maxWidth),
-        width: this.width === 'auto' ? undefined : convertToUnit(this.width),
-      }
-    }
-
-    children.push(this.genActivator())
-
-    let dialog = h('div', data, this.showLazyContent(this.getContentSlot()))
-    if (this.transition) {
-      dialog = h('transition', {
-        props: {
-          name: this.transition,
-          origin: this.origin,
-        },
-      }, [dialog])
-    }
-
-    children.push(h('div', {
-      class: this.contentClasses,
-      attrs: {
-        role: 'document',
-        tabindex: 0,
-        ...this.getScopeIdAttrs(),
-      },
-      on: {
-        keydown: this.onKeydown,
-      },
-      style: { zIndex: this.activeZIndex },
-      ref: 'content',
-    }, [
-      this.$createElement(ThemeProvider, {
-        props: {
-          root: true,
-          light: this.light,
-          dark: this.dark,
-        },
-      }, [dialog]),
-    ]))
-
     return h('div', {
       staticClass: 'v-dialog__container',
-      attrs: { role: 'dialog' },
-      style: {
-        display: (!this.hasActivator || this.fullWidth) ? 'block' : 'inline-block',
+      class: {
+        'v-dialog__container--attached':
+          this.attach === '' ||
+          this.attach === true ||
+          this.attach === 'attach',
       },
-    }, children)
+      attrs: { role: 'dialog' },
+    }, [
+      this.genActivator(),
+      this.genContent(),
+    ])
   },
 })

@@ -29,7 +29,6 @@ const baseMixins = mixins(
     'clippedLeft',
     'clippedRight',
     'computedHeight',
-    'computedTransform',
     'invertedScroll',
     'isExtended',
     'isProminent',
@@ -42,6 +41,10 @@ export default baseMixins.extend({
   name: 'v-app-bar',
 
   directives: { Scroll },
+
+  provide (): object {
+    return { VAppBar: this }
+  },
 
   props: {
     clippedLeft: Boolean,
@@ -78,7 +81,7 @@ export default baseMixins.extend({
           this.hideOnScroll ||
           this.collapseOnScroll ||
           this.isBooted ||
-          // If falsey, user has provided an
+          // If falsy, user has provided an
           // explicit value which should
           // overwrite anything we do
           !this.value
@@ -99,28 +102,25 @@ export default baseMixins.extend({
         'v-app-bar--shrink-on-scroll': this.shrinkOnScroll,
       }
     },
+    scrollRatio (): number {
+      const threshold = this.computedScrollThreshold
+      return Math.max((threshold - this.currentScroll) / threshold, 0)
+    },
     computedContentHeight (): number {
       if (!this.shrinkOnScroll) return VToolbar.options.computed.computedContentHeight.call(this)
 
-      const height = this.computedOriginalHeight
-
       const min = this.dense ? 48 : 56
-      const max = height
-      const difference = max - min
-      const iteration = difference / this.computedScrollThreshold
-      const offset = this.currentScroll * iteration
+      const max = this.computedOriginalHeight
 
-      return Math.max(min, max - offset)
+      return min + (max - min) * this.scrollRatio
     },
     computedFontSize (): number | undefined {
       if (!this.isProminent) return undefined
 
-      const max = this.dense ? 96 : 128
-      const difference = max - this.computedContentHeight
-      const increment = 0.00347
+      const min = 1.25
+      const max = 1.5
 
-      // 1.5rem to a minimum of 1.25rem
-      return Number((1.50 - difference * increment).toFixed(2))
+      return min + (max - min) * this.scrollRatio
     },
     computedLeft (): number {
       if (!this.app || this.clippedLeft) return 0
@@ -135,12 +135,7 @@ export default baseMixins.extend({
     computedOpacity (): number | undefined {
       if (!this.fadeImgOnScroll) return undefined
 
-      const opacity = Math.max(
-        (this.computedScrollThreshold - this.currentScroll) / this.computedScrollThreshold,
-        0
-      )
-
-      return Number(parseFloat(opacity).toFixed(2))
+      return this.scrollRatio
     },
     computedOriginalHeight (): number {
       let height = VToolbar.options.computed.computedContentHeight.call(this)
@@ -160,16 +155,22 @@ export default baseMixins.extend({
     computedTransform (): number {
       if (
         !this.canScroll ||
-        (this.elevateOnScroll && this.currentScroll === 0)
+        (this.elevateOnScroll && this.currentScroll === 0 && this.isActive)
       ) return 0
 
       if (this.isActive) return 0
 
-      return this.scrollOffScreen
-        ? -this.computedHeight
-        : -this.computedContentHeight
+      const scrollOffScreen = this.scrollOffScreen
+        ? this.computedHeight
+        : this.computedContentHeight
+
+      return this.bottom ? scrollOffScreen : -scrollOffScreen
     },
     hideShadow (): boolean {
+      if (this.elevateOnScroll && this.isExtended) {
+        return this.currentScroll < this.computedScrollThreshold
+      }
+
       if (this.elevateOnScroll) {
         return this.currentScroll === 0 ||
           this.computedTransform < 0
@@ -207,8 +208,22 @@ export default baseMixins.extend({
 
   watch: {
     canScroll: 'onScroll',
+    computedTransform () {
+      // Normally we do not want the v-app-bar
+      // to update the application top value
+      // to avoid screen jump. However, in
+      // this situation, we must so that
+      // the clipped drawer can update
+      // its top value when scrolled
+      if (
+        !this.canScroll ||
+        (!this.clippedLeft && !this.clippedRight)
+      ) return
+
+      this.callUpdate()
+    },
     invertedScroll (val: boolean) {
-      this.isActive = !val
+      this.isActive = !val || this.currentScroll !== 0
     },
   },
 
@@ -237,11 +252,12 @@ export default baseMixins.extend({
         return
       }
 
-      if (this.currentThreshold < this.computedScrollThreshold) return
-
       if (this.hideOnScroll) {
-        this.isActive = this.isScrollingUp
+        this.isActive = this.isScrollingUp ||
+          this.currentScroll < this.computedScrollThreshold
       }
+
+      if (this.currentThreshold < this.computedScrollThreshold) return
 
       this.savedScroll = this.currentScroll
     },

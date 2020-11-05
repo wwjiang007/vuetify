@@ -54,7 +54,9 @@ export default mixins<options &
       this.hasDetached = false
       this.initDetach()
     },
-    hasContent: 'initDetach',
+    hasContent () {
+      this.$nextTick(this.initDetach)
+    },
   },
 
   beforeMount () {
@@ -77,7 +79,7 @@ export default mixins<options &
   },
 
   mounted () {
-    this.eager && this.initDetach()
+    this.hasContent && this.initDetach()
   },
 
   deactivated () {
@@ -141,10 +143,7 @@ export default mixins<options &
         return
       }
 
-      target.insertBefore(
-        this.$refs.content,
-        target.firstChild
-      )
+      target.appendChild(this.$refs.content)
 
       this.hasDetached = true
     },

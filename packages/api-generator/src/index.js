@@ -1,264 +1,211 @@
 const Vue = require('vue')
 const Vuetify = require('vuetify')
-const fs = require('fs')
-const map = require('./helpers/map')
+const { components: excludes } = require('./helpers/excludes')
+const { camelCase, kebabCase, pascalize } = require('./helpers/text')
+const { parseComponent, parseSassVariables, parseGlobalSassVariables } = require('./helpers/parsing')
 const deepmerge = require('./helpers/merge')
-
-const hyphenateRE = /\B([A-Z])/g
-function hyphenate (str) {
-  return str.replace(hyphenateRE, '-$1').toLowerCase()
-}
 
 Vue.use(Vuetify)
 
-function parseFunctionParams (func) {
-  const groups = /function\s_.*\((.*)\)\s\{.*/i.exec(func)
-  if (groups && groups.length > 1) return `(${groups[1]}) => {}`
-  else return 'null'
+const loadLocale = (componentName, locale, fallback = {}) => {
+  try {
+    const data = require(`./locale/${locale}/${componentName}`)
+    return Object.assign(fallback, data)
+  } catch (err) {
+    return fallback
+  }
 }
 
-function getPropType (type) {
-  if (Array.isArray(type)) {
-    return type.map(t => getPropType(t))
+const loadMap = (componentName, fallback = {}) => {
+  try {
+    const { [componentName]: map } = require(`./maps/${componentName}`)
+
+    // Make sure all prop names are kebab-case
+    const combined = Object.assign(fallback, {
+      ...map,
+      props: (map.props || []).map(item => ({
+        ...item,
+        name: kebabCase(item.name),
+      })),
+    })
+
+    // Make sure things are sorted
+    const categories = ['slots', 'events', 'functions']
+    categories.forEach(category => combined[category].sort((a, b) => a.name.localeCompare(b.name)))
+    return combined
+  } catch {
+    return fallback
   }
-
-  if (!type) return 'any'
-
-  return type.name.toLowerCase()
 }
 
-function getPropDefault (def, type) {
-  if (def === '' ||
-    (def == null && type !== 'boolean' && type !== 'function')
-  ) {
-    return 'undefined'
-  } else if (typeof (def) === 'function' && type !== 'function') {
-    def = def.call({})
-  }
-
-  if (type === 'boolean') {
-    return def ? 'true' : 'false'
-  }
-
-  if (type === 'string') {
-    return def ? `'${def}'` : def
-  }
-
-  if (type === 'function') {
-    return parseFunctionParams(def)
-  }
-
-  return def
-}
-
-function getPropSource (name, mixins) {
-  const source = null
-  for (let i = 0; i < mixins.length; i++) {
-    let mixin = mixins[i]
-    if (mixin.name !== 'VueComponent') mixin = Vue.extend(mixin)
-
-    if (mixin.options.name) {
-      const source = Object.keys(mixin.options.props || {}).find(p => p === name) && mixin.options.name
-      const found = getPropSource(name, [mixin.super].concat(mixin.options.extends).concat(mixin.options.mixins).filter(m => !!m)) || source
-      if (found) return hyphenate(found)
+const getSources = api => {
+  return ['props', 'events', 'slots'].reduce((arr, category) => {
+    for (const item of api[category]) {
+      if (!arr.includes(item.source)) arr.push(item.source)
     }
-  }
-
-  return source
+    return arr
+  }, [])
 }
 
-function genProp (name, prop, mixins, cmp) {
-  const type = getPropType(prop.type)
-  const source = getPropSource(name, mixins) || cmp
+const addComponentApiDescriptions = (componentName, api, locales) => {
+  for (const localeName of locales) {
+    const sources = [
+      loadLocale(componentName, localeName),
+      ...getSources(api).map(source => loadLocale(source, localeName)),
+      ...api.mixins.map(mixin => loadLocale(mixin, localeName)),
+      loadLocale('generic', localeName),
+    ]
 
-  return {
-    name,
-    type,
-    default: getPropDefault(prop.default, type),
-    source,
-  }
-}
+    for (const category of ['props', 'events', 'slots', 'functions', 'sass']) {
+      for (const item of api[category]) {
+        const name = category === 'props' ? camelCase(item.name) : item.name
+        let description = ''
+        if (category === 'sass') {
+          description = (sources[0] && sources[0][category] && sources[0][category][name]) || ''
+        } else {
+          description = sources.reduce((str, source) => {
+            if (str) return str
+            return source[category] && source[category][name]
+          }, null)
+        }
 
-function parseComponent (component) {
-  return {
-    props: parseProps(component),
-    mixins: parseMixins(component),
-  }
-}
+        if (!item.description) item.description = {}
 
-function parseProps (component, array = [], mixin = false) {
-  const options = component.options
-  const mixins = [component.super].concat(options.extends).concat(options.mixins).filter(m => !!m)
-  const props = options.props || {}
-
-  Object.keys(props).forEach(key => {
-    const generated = genProp(key, props[key], mixins, component.options.name)
-    array.push(generated)
-  })
-
-  return array.sort((a, b) => a.name > b.name)
-}
-
-function parseMixins (component) {
-  if (!component.options.mixins) return []
-
-  let mixins = []
-  for (let i = 0; i < component.options.mixins.length; i++) {
-    let mixin = component.options.mixins[i]
-
-    if (mixin.name !== 'VueComponent') mixin = Vue.extend(mixin)
-
-    if (mixin.options.name) {
-      mixins.push(mixin.options.name)
-
-      if (mixin.options.mixins) {
-        mixins = mixins.concat(parseMixins(mixin))
+        item.description[localeName] = description || ''
       }
     }
   }
 
-  return mixins.sort((a, b) => a > b)
+  return api
 }
 
-const components = {}
-const directives = {}
+const addDirectiveApiDescriptions = (directiveName, api, locales) => {
+  if (api.argument.length) {
+    for (const localeName of locales) {
+      const source = loadLocale(directiveName, localeName)
+      if (!api.argument[0].description) api.argument[0].description = {}
 
-const installedComponents = Vue.options._base.options.components
-const installedDirectives = Vue.options._base.options.directives
+      api.argument[0].description[localeName] = source.argument || ''
+    }
+  }
 
-const componentNameRegex = /^(?:V[A-Z]|v-[a-z])/
-for (const name in installedComponents) {
-  if (!componentNameRegex.test(name)) continue
+  if (api.modifiers) {
+    api = addGenericApiDescriptions(directiveName, api, locales, ['modifiers'])
+  }
 
-  let component = installedComponents[name]
+  return api
+}
+
+const addGenericApiDescriptions = (name, api, locales, categories) => {
+  for (const localeName of locales) {
+    const source = loadLocale(name, localeName)
+    for (const category of categories) {
+      for (const item of api[category]) {
+        if (!item.description) item.description = {}
+
+        item.description[localeName] = source[category] ? source[category][item.name] : ''
+      }
+    }
+  }
+
+  return api
+}
+
+const getComponentApi = (componentName, locales) => {
+  const pascalName = pascalize(componentName)
+
+  let component = Vue.options._base.options.components[pascalName]
 
   if (component.options.$_wrapperFor) {
     component = component.options.$_wrapperFor
   }
 
-  const kebabName = hyphenate(name)
-  let options = parseComponent(component)
+  if (!component) throw new Error(`Could not find component: ${componentName}`)
 
-  if (map[kebabName]) {
-    options = deepmerge(options, map[kebabName])
+  const propsAndMixins = parseComponent(component)
+  const slotsEventsAndFunctions = loadMap(componentName, { slots: [], events: [], functions: [] })
+  const sassVariables = parseSassVariables(componentName)
+
+  const api = deepmerge(propsAndMixins, slotsEventsAndFunctions, { name: componentName, sass: sassVariables, component: true })
+
+  return addComponentApiDescriptions(componentName, api, locales)
+}
+
+const getDirectiveApi = (directiveName, locales) => {
+  const pascalName = pascalize(directiveName.slice(2))
+
+  const directive = Vue.options._base.options.directives[pascalName]
+
+  if (!directive) throw new Error(`Could not find directive: ${directiveName}`)
+
+  const api = deepmerge(loadMap(directiveName), { name: directiveName, directive: true })
+
+  return addDirectiveApiDescriptions(directiveName, api, locales)
+}
+
+const getVuetifyApi = locales => {
+  const name = '$vuetify'
+  const sass = parseGlobalSassVariables()
+  const api = deepmerge(loadMap(name), { name, sass })
+
+  return addGenericApiDescriptions(name, api, locales, ['functions', 'sass'])
+}
+
+const getInternationalizationApi = locales => {
+  const name = 'internationalization'
+  const api = deepmerge(loadMap(name), { name })
+
+  return addGenericApiDescriptions(name, api, locales, ['functions', 'props'])
+}
+
+const DIRECTIVES = ['v-mutate', 'v-intersect', 'v-ripple', 'v-resize', 'v-scroll', 'v-touch', 'v-click-outside']
+
+const getApi = (name, locales) => {
+  if (name === '$vuetify') return getVuetifyApi(locales)
+  if (name === 'internationalization') return getInternationalizationApi(locales)
+  if (DIRECTIVES.includes(name)) return getDirectiveApi(name, locales)
+  else return getComponentApi(name, locales)
+}
+
+const getComponentsApi = locales => {
+  const components = []
+  const installedComponents = Vue.options._base.options.components
+  const componentNameRegex = /^(?:V[A-Z]|v-[a-z])/
+
+  for (const componentName in installedComponents) {
+    if (!componentNameRegex.test(componentName)) continue
+    if (excludes.includes(componentName)) continue
+
+    const kebabName = kebabCase(componentName)
+
+    components.push(getComponentApi(kebabName, locales))
   }
 
-  components[kebabName] = options
+  return components
 }
 
-for (const key of ['Ripple', 'Resize', 'Scroll', 'Touch']) {
-  if (!installedDirectives[key]) continue
+const getDirectivesApi = locales => {
+  const directives = []
 
-  const lowerCaseVersion = key.toLowerCase()
-  const vKey = `v-${lowerCaseVersion}`
-  const directive = map[vKey]
-  directive.type = getPropDefault(directive.default, directive.type)
-  directives[vKey] = directive
-}
-
-function writeApiFile (obj, file) {
-  const stream = fs.createWriteStream(file)
-
-  const comment = `/*
-  * THIS FILE HAS BEEN AUTOMATICALLY GENERATED USING THE API-GENERATOR TOOL.
-  *
-  * CHANGES MADE TO THIS FILE WILL BE LOST!
-  */
-
-`
-
-  stream.once('open', () => {
-    stream.write(comment)
-    stream.write('module.exports = ')
-    stream.write(JSON.stringify(obj, null, 2))
-    stream.write('\n')
-    stream.end()
-  })
-}
-
-function writeJsonFile (obj, file) {
-  const stream = fs.createWriteStream(file)
-
-  stream.once('open', () => {
-    stream.write(JSON.stringify(obj, null, 2))
-    stream.end()
-  })
-}
-
-function writePlainFile (content, file) {
-  const stream = fs.createWriteStream(file)
-
-  stream.once('open', () => {
-    stream.write(content)
-    stream.end()
-  })
-}
-
-const tags = Object.keys(components).reduce((t, k) => {
-  t[k] = {
-    attributes: components[k].props.map(p => p.name.replace(/([A-Z])/g, g => `-${g[0].toLowerCase()}`)).sort(),
-    description: '',
+  for (const directiveName of DIRECTIVES) {
+    directives.push(getDirectiveApi(directiveName, locales))
   }
 
-  return t
-}, {})
-
-const attributes = Object.keys(components).reduce((attrs, k) => {
-  const tmp = components[k].props.reduce((a, prop) => {
-    let type = prop.type
-
-    if (!type) type = ''
-    else if (Array.isArray(type)) type = type.map(t => t.toLowerCase()).join('|')
-    else type = type.toLowerCase()
-
-    const name = prop.name.replace(/([A-Z])/g, g => `-${g[0].toLowerCase()}`)
-
-    a[`${k}/${name}`] = {
-      type,
-      description: '',
-    }
-
-    return a
-  }, {})
-
-  return Object.assign(attrs, tmp)
-}, {})
-
-const fakeComponents = ts => {
-  const imports = [
-    `import Vue from 'vue'`,
-  ]
-  if (ts) imports.push(`import { PropValidator } from 'vue/types/options'`)
-  const inspection = ts ? '' : `// noinspection JSUnresolvedFunction\n`
-
-  return `${imports.join('\n')}\n\n` + Object.keys(components).map(component => {
-    const propType = type => {
-      if (type === 'any' || typeof type === 'undefined') return ts ? 'null as any as PropValidator<any>' : 'null'
-      if (Array.isArray(type)) return `[${type.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(',')}]`
-      return type.charAt(0).toUpperCase() + type.slice(1)
-    }
-    const quoteProp = name => name.match(/-/) ? `'${name}'` : name
-    const componentProps = components[component].props
-    componentProps.sort((a, b) => {
-      if (a.name < b.name) return -1
-      return a.name === b.name ? 0 : 1
-    })
-    let props = componentProps.map(prop => `    ${quoteProp(prop.name)}: ${propType(prop.type)}`).join(',\n')
-    if (props) props = `\n  props: {\n${props}\n  }\n`
-    return `${inspection}Vue.component('${component}', {${props}})`
-  }).join('\n')
+  return directives
 }
 
-if (!fs.existsSync('dist')) {
-  fs.mkdirSync('dist', 0o755)
+const getCompleteApi = locales => {
+  return [
+    getVuetifyApi(locales),
+    getInternationalizationApi(locales),
+    ...getComponentsApi(locales),
+    ...getDirectivesApi(locales),
+  ].sort((a, b) => a.name.localeCompare(b.name))
 }
 
-writeJsonFile(tags, 'dist/tags.json')
-writeJsonFile(attributes, 'dist/attributes.json')
-writePlainFile(fakeComponents(false), 'dist/fakeComponents.js')
-writePlainFile(fakeComponents(true), 'dist/fakeComponents.ts')
-
-components['$vuetify'] = map['$vuetify']
-components['internationalization'] = map['internationalization']
-
-writeApiFile({ ...components, ...directives }, 'dist/api.js')
+module.exports = {
+  getApi,
+  getCompleteApi,
+  getComponentsApi,
+  getDirectivesApi,
+}

@@ -12,6 +12,8 @@ import {
   MountOptions,
   Wrapper,
 } from '@vue/test-utils'
+import { waitAnimationFrame } from '../../../../test'
+
 describe('VCarousel.ts', () => {
   type Instance = InstanceType<typeof VCarousel>
   let mountFunction: (options?: MountOptions<Instance>) => Wrapper<Instance>
@@ -45,14 +47,14 @@ describe('VCarousel.ts', () => {
 
     wrapper.setProps({ cycle: true })
 
-    await new Promise(resolve => window.requestAnimationFrame(resolve))
+    await waitAnimationFrame()
 
     expect(wrapper.vm.slideTimeout).toBeTruthy()
     expect(restartTimeout).toHaveBeenCalled()
 
     wrapper.setProps({ cycle: false })
 
-    await new Promise(resolve => window.requestAnimationFrame(resolve))
+    await waitAnimationFrame()
 
     expect(wrapper.vm.slideTimeout).toBeUndefined()
   })
@@ -84,6 +86,10 @@ describe('VCarousel.ts', () => {
     const items = wrapper.findAll('.v-carousel__controls__item')
 
     expect(items).toHaveLength(3)
+
+    items.wrappers.forEach(item => {
+      expect(item.attributes()['aria-label']).toBeDefined()
+    })
 
     items.at(1).trigger('click')
 

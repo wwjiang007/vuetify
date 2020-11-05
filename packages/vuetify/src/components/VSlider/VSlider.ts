@@ -16,9 +16,9 @@ import { addOnceEventListener, deepEqual, keyCodes, createRange, convertToUnit, 
 import { consoleWarn } from '../../util/console'
 
 // Types
-import Vue, { VNode, VNodeChildrenArrayContents } from 'vue'
-import { PropValidator } from 'vue/types/options'
+import Vue, { VNode, VNodeChildrenArrayContents, PropType } from 'vue'
 import { ScopedSlotChildren } from 'vue/types/vnode'
+import { PropValidator } from 'vue/types/options'
 
 interface options extends Vue {
   $refs: {
@@ -63,10 +63,10 @@ export default mixins<options &
     },
     thumbColor: String,
     thumbLabel: {
-      type: [Boolean, String],
-      default: null,
+      type: [Boolean, String] as PropType<boolean | 'always' | undefined>,
+      default: undefined,
       validator: v => typeof v === 'boolean' || v === 'always',
-    } as PropValidator<boolean | 'always' | null>,
+    },
     thumbSize: {
       type: [Number, String],
       default: 32,
@@ -76,10 +76,10 @@ export default mixins<options &
       default: () => ([]),
     } as PropValidator<string[]>,
     ticks: {
-      type: [Boolean, String],
+      type: [Boolean, String] as PropType<boolean | 'always'>,
       default: false,
       validator: v => typeof v === 'boolean' || v === 'always',
-    } as PropValidator<boolean | 'always'>,
+    },
     tickSize: {
       type: [Number, String],
       default: 2,
@@ -96,7 +96,7 @@ export default mixins<options &
     keyPressed: 0,
     isFocused: false,
     isActive: false,
-    lazyValue: 0,
+    noClick: false, // Prevent click event if dragging took place, hack for #7915
   }),
 
   computed: {
@@ -139,9 +139,7 @@ export default mixins<options &
       return this.step > 0 ? parseFloat(this.step) : 0
     },
     inputWidth (): number {
-      const value = (this.roundValue(this.internalValue) - this.minValue) / (this.maxValue - this.minValue) * 100
-
-      return value
+      return (this.roundValue(this.internalValue) - this.minValue) / (this.maxValue - this.minValue) * 100
     },
     trackFillStyles (): Partial<CSSStyleDeclaration> {
       const startDir = this.vertical ? 'bottom' : 'left'
@@ -150,7 +148,7 @@ export default mixins<options &
 
       const start = this.$vuetify.rtl ? 'auto' : '0'
       const end = this.$vuetify.rtl ? '0' : 'auto'
-      const value = this.disabled ? `calc(${this.inputWidth}% - 10px)` : `${this.inputWidth}%`
+      const value = this.isDisabled ? `calc(${this.inputWidth}% - 10px)` : `${this.inputWidth}%`
 
       return {
         transition: this.trackTransition,
@@ -164,7 +162,7 @@ export default mixins<options &
       const endDir = this.vertical ? 'height' : 'width'
 
       const start = '0px'
-      const end = this.disabled ? `calc(${100 - this.inputWidth}% - 10px)` : `calc(${100 - this.inputWidth}%)`
+      const end = this.isDisabled ? `calc(${100 - this.inputWidth}% - 10px)` : `calc(${100 - this.inputWidth}%)`
 
       return {
         transition: this.trackTransition,
@@ -174,25 +172,25 @@ export default mixins<options &
     },
     showTicks (): boolean {
       return this.tickLabels.length > 0 ||
-        !!(!this.disabled && this.stepNumeric && this.ticks)
+        !!(!this.isDisabled && this.stepNumeric && this.ticks)
     },
     numTicks (): number {
       return Math.ceil((this.maxValue - this.minValue) / this.stepNumeric)
     },
     showThumbLabel (): boolean {
-      return !this.disabled && !!(
+      return !this.isDisabled && !!(
         this.thumbLabel ||
         this.$scopedSlots['thumb-label']
       )
     },
     computedTrackColor (): string | undefined {
-      if (this.disabled) return undefined
+      if (this.isDisabled) return undefined
       if (this.trackColor) return this.trackColor
       if (this.isDark) return this.validationState
       return this.validationState || 'primary lighten-3'
     },
     computedTrackFillColor (): string | undefined {
-      if (this.disabled) return undefined
+      if (this.isDisabled) return undefined
       if (this.trackFillColor) return this.trackFillColor
       return this.validationState || this.computedColor
     },
@@ -251,8 +249,8 @@ export default mixins<options &
           'v-slider--vertical': this.vertical,
           'v-slider--focused': this.isFocused,
           'v-slider--active': this.isActive,
-          'v-slider--disabled': this.disabled,
-          'v-slider--readonly': this.readonly,
+          'v-slider--disabled': this.isDisabled,
+          'v-slider--readonly': this.isReadonly,
           ...this.themeClasses,
         },
         directives: [{
@@ -275,7 +273,8 @@ export default mixins<options &
           this.isActive,
           this.isFocused,
           this.onThumbMouseDown,
-          this.onFocus
+          this.onFocus,
+          this.onBlur,
         ),
       ]
     },
@@ -284,7 +283,7 @@ export default mixins<options &
         attrs: {
           value: this.internalValue,
           id: this.computedId,
-          disabled: this.disabled,
+          disabled: this.isDisabled,
           readonly: true,
           tabindex: -1,
           ...this.$attrs,
@@ -314,13 +313,12 @@ export default mixins<options &
 
       const tickSize = parseFloat(this.tickSize)
       const range = createRange(this.numTicks + 1)
-      const direction = this.vertical ? 'bottom' : 'left'
-      const offsetDirection = this.vertical ? 'right' : 'top'
+      const direction = this.vertical ? 'bottom' : (this.$vuetify.rtl ? 'right' : 'left')
+      const offsetDirection = this.vertical ? (this.$vuetify.rtl ? 'left' : 'right') : 'top'
 
       if (this.vertical) range.reverse()
 
-      const ticks = range.map(i => {
-        const index = this.$vuetify.rtl ? this.maxValue - i : i
+      const ticks = range.map(index => {
         const children = []
 
         if (this.tickLabels[index]) {
@@ -329,11 +327,11 @@ export default mixins<options &
           }, this.tickLabels[index]))
         }
 
-        const width = i * (100 / this.numTicks)
+        const width = index * (100 / this.numTicks)
         const filled = this.$vuetify.rtl ? (100 - this.inputWidth) < width : width < this.inputWidth
 
         return this.$createElement('span', {
-          key: i,
+          key: index,
           staticClass: 'v-slider__tick',
           class: {
             'v-slider__tick--filled': filled,
@@ -361,6 +359,7 @@ export default mixins<options &
       isFocused: boolean,
       onDrag: Function,
       onFocus: Function,
+      onBlur: Function,
       ref = 'thumb'
     ): VNode {
       const children = [this.genThumb()]
@@ -370,6 +369,7 @@ export default mixins<options &
 
       return this.$createElement('div', this.setTextColor(this.computedThumbColor, {
         ref,
+        key: ref,
         staticClass: 'v-slider__thumb-container',
         class: {
           'v-slider__thumb-container--active': isActive,
@@ -379,18 +379,18 @@ export default mixins<options &
         style: this.getThumbContainerStyles(valueWidth),
         attrs: {
           role: 'slider',
-          tabindex: this.disabled || this.readonly ? -1 : this.$attrs.tabindex ? this.$attrs.tabindex : 0,
+          tabindex: this.isDisabled ? -1 : this.$attrs.tabindex ? this.$attrs.tabindex : 0,
           'aria-label': this.label,
           'aria-valuemin': this.min,
           'aria-valuemax': this.max,
           'aria-valuenow': this.internalValue,
-          'aria-readonly': String(this.readonly),
+          'aria-readonly': String(this.isReadonly),
           'aria-orientation': this.vertical ? 'vertical' : 'horizontal',
           ...this.$attrs,
         },
         on: {
           focus: onFocus,
-          blur: this.onBlur,
+          blur: onBlur,
           keydown: this.onKeyDown,
           keyup: this.onKeyUp,
           touchstart: onDrag,
@@ -447,6 +447,8 @@ export default mixins<options &
       }
     },
     onThumbMouseDown (e: MouseEvent) {
+      e.preventDefault()
+
       this.oldValue = this.internalValue
       this.keyPressed = 2
       this.isActive = true
@@ -470,9 +472,11 @@ export default mixins<options &
       this.app.removeEventListener('touchmove', this.onMouseMove, mouseMoveOptions)
       this.app.removeEventListener('mousemove', this.onMouseMove, mouseMoveOptions)
 
+      this.$emit('mouseup', e)
       this.$emit('end', this.internalValue)
       if (!deepEqual(this.oldValue, this.internalValue)) {
         this.$emit('change', this.internalValue)
+        this.noClick = true
       }
 
       this.isActive = false
@@ -482,11 +486,15 @@ export default mixins<options &
       this.internalValue = value
     },
     onKeyDown (e: KeyboardEvent) {
-      if (this.disabled || this.readonly) return
+      if (!this.isInteractive) return
 
       const value = this.parseKeyDown(e, this.internalValue)
 
-      if (value == null) return
+      if (
+        value == null ||
+        value < this.minValue ||
+        value > this.maxValue
+      ) return
 
       this.internalValue = value
       this.$emit('change', value)
@@ -495,6 +503,10 @@ export default mixins<options &
       this.keyPressed = 0
     },
     onSliderClick (e: MouseEvent) {
+      if (this.noClick) {
+        this.noClick = false
+        return
+      }
       const thumb = this.$refs.thumb as HTMLElement
       thumb.focus()
 
@@ -534,7 +546,7 @@ export default mixins<options &
       return { value, isInsideTrack }
     },
     parseKeyDown (e: KeyboardEvent, value: number) {
-      if (this.disabled) return
+      if (!this.isInteractive) return
 
       const { pageup, pagedown, end, home, left, right, down, up } = keyCodes
 
